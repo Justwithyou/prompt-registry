@@ -1,3 +1,5 @@
+pub mod prompt;
+
 /// 连通性探针命令（M0）。
 ///
 /// 用于验证「前端 invoke → Tauri → Rust 命令 → 回传」最小链路是否打通。

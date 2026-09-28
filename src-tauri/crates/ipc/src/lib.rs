@@ -2,3 +2,6 @@
 //! 命令函数集中在本 crate 的 `commands` 模块，由 src-tauri/src/lib.rs 统一注册。
 
 pub mod commands;
+pub mod state;
+
+pub use state::AppState;

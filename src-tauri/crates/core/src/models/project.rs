@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 /// 项目实体。
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct Project {
     pub id: String,
     pub name: String,

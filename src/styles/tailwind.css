@@ -1,0 +1,4 @@
+/* Tailwind CSS 4.x 入口。
+ * M0 骨架未引入 Tailwind，全局样式暂由 global.css 承担。
+ * 后续里程碑安装 tailwindcss 后，在 main.tsx 引入本文件即可启用工具类。 */
+@import "tailwindcss";

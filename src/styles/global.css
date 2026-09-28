@@ -1,0 +1,90 @@
+:root {
+  /* 深色星空基调（后续由 Tailwind 主题接管） */
+  --bg: #0b1020;
+  --bg-soft: #141a2e;
+  --fg: #e6e9f2;
+  --fg-muted: #9aa3b8;
+  --accent: #6ea8fe;
+  --radius: 12px;
+
+  font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui,
+    -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background:
+    radial-gradient(1200px 600px at 20% -10%, #1b2a52 0%, transparent 60%),
+    radial-gradient(1000px 500px at 90% 10%, #241a46 0%, transparent 55%),
+    var(--bg);
+  color: var(--fg);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 2rem;
+  gap: 1.5rem;
+}
+
+.app-header {
+  text-align: center;
+}
+
+.app-header h1 {
+  font-size: 1.8rem;
+  font-weight: 650;
+  margin: 0 0 0.5rem;
+}
+
+.app-header p {
+  color: var(--fg-muted);
+  margin: 0;
+}
+
+.app-main {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.app-main button {
+  padding: 0.6rem 1.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: var(--radius);
+  background: var(--bg-soft);
+  color: var(--fg);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.app-main button:hover:not(:disabled) {
+  background: #1d2540;
+  border-color: rgba(110, 168, 254, 0.5);
+}
+
+.app-main button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ping-result {
+  color: var(--accent);
+  font-family: ui-monospace, "SFMono-Regular", Consolas, monospace;
+}

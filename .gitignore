@@ -1,0 +1,22 @@
+# 依赖与构建产物
+node_modules/
+dist/
+target/
+src-tauri/target/
+src-tauri/gen/
+
+# 日志
+*.log
+logs/
+
+# 环境与密钥
+.env
+.env.*
+!.env.example
+*.local
+
+# 编辑器与系统
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea/

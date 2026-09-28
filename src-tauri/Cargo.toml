@@ -1,0 +1,24 @@
+[package]
+name = "prompt-manager"
+version = "0.1.0"
+description = "个人提示词管理平台"
+authors = ["prompt-manager"]
+edition = "2021"
+
+[lib]
+name = "prompt_manager_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# 注：crate 名 "core" 与 Rust 标准库 core 冲突，引用处使用别名 prompt_core（package 仍名为 core）
+prompt_core = { package = "core", path = "crates/core" }
+ipc = { path = "crates/ipc" }
+
+[workspace]
+members = ["crates/*"]

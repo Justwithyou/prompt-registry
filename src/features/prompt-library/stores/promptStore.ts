@@ -4,19 +4,23 @@ import type {
   PromptQuery,
   CreatePromptInput,
   UpdatePromptInput,
+  PromptRelationsInput,
+  BatchUpdateInput,
 } from "../../../entities/prompt/types";
 import * as promptApi from "../api";
 
 /**
  * 提示词库状态（Zustand store）。
  * 对应架构方案 3.2 的 promptStore：列表、当前项、筛选条件、加载态，
- * 以及增删改查 / 搜索 action（M1-C2）。
+ * 以及增删改查 / 搜索 / 关系快捷更新 / 批量操作 action（M1-C2 + M2-C2）。
  */
 export interface PromptStore {
   prompts: Prompt[];
   selectedPromptId: string | null;
   filters: PromptQuery;
   isLoading: boolean;
+  selectionMode: boolean;
+  selectedIds: string[];
 
   fetchPrompts: (filters?: PromptQuery) => Promise<void>;
   searchPrompts: (keyword: string) => Promise<void>;
@@ -24,22 +28,20 @@ export interface PromptStore {
   createPrompt: (data: CreatePromptInput) => Promise<Prompt>;
   updatePrompt: (id: string, data: UpdatePromptInput) => Promise<void>;
   deletePrompt: (id: string) => Promise<void>;
+  setPromptRelations: (
+    id: string,
+    relations: PromptRelationsInput,
+  ) => Promise<void>;
+  batchUpdatePrompts: (
+    ids: string[],
+    batch: BatchUpdateInput,
+  ) => Promise<void>;
   clearAll: () => Promise<void>;
-}
-
-/**
- * 客户端过滤：仅处理 M1 后端契约未覆盖的分类 / 置顶筛选。
- * keyword 由独立的 FTS 命令 `searchPrompts` 处理，不透传后端 list 查询。
- */
-function applyFilters(list: Prompt[], filters: PromptQuery): Prompt[] {
-  let out = list;
-  if (filters.category) {
-    out = out.filter((p) => p.category === filters.category);
-  }
-  if (filters.isPinned != null) {
-    out = out.filter((p) => p.isPinned === filters.isPinned);
-  }
-  return out;
+  setFilters: (patch: Partial<PromptQuery>) => Promise<void>;
+  resetFilters: () => Promise<void>;
+  setSelectionMode: (on: boolean) => void;
+  toggleSelected: (id: string) => void;
+  clearSelection: () => void;
 }
 
 export const usePromptStore = create<PromptStore>()((set, get) => ({
@@ -47,13 +49,16 @@ export const usePromptStore = create<PromptStore>()((set, get) => ({
   selectedPromptId: null,
   filters: {},
   isLoading: false,
+  selectionMode: false,
+  selectedIds: [],
 
+  // M2 起：把完整组合筛选（关键词/分类/标签/项目/收藏/置顶/排序）透传给后端 SQL 组合查询。
   async fetchPrompts(filters) {
     const next = { ...get().filters, ...(filters ?? {}) };
     set({ filters: next, isLoading: true });
     try {
-      const all = await promptApi.getPrompts({});
-      set({ prompts: applyFilters(all, next) });
+      const prompts = await promptApi.getPrompts(next);
+      set({ prompts });
     } finally {
       set({ isLoading: false });
     }
@@ -95,9 +100,50 @@ export const usePromptStore = create<PromptStore>()((set, get) => ({
     }));
   },
 
+  // 卡片快捷收藏/置顶/评分，或元数据面板设置项目/标签关联（M2-C2）。
+  async setPromptRelations(id, relations) {
+    const updated = await promptApi.setPromptRelations(id, relations);
+    set((state) => ({
+      prompts: state.prompts.map((p) => (p.id === id ? updated : p)),
+    }));
+  },
+
+  // 批量打标签 / 移动项目 / 删除，完成后统一重拉以与后端保持一致（M2-C2）。
+  async batchUpdatePrompts(ids, batch) {
+    await promptApi.batchUpdatePrompts(ids, batch);
+    await get().fetchPrompts();
+  },
+
   async clearAll() {
     const all = await promptApi.getPrompts({});
     await Promise.all(all.map((p) => promptApi.deletePrompt(p.id)));
-    set({ prompts: [], selectedPromptId: null, filters: {} });
+    set({ prompts: [], selectedPromptId: null, filters: {}, selectionMode: false, selectedIds: [] });
+  },
+
+  // 合并局部筛选并重拉（M2 联合筛选走服务器端 SQL）。
+  setFilters(patch) {
+    return get().fetchPrompts(patch);
+  },
+
+  // 清空全部筛选条件并恢复默认列表。
+  async resetFilters() {
+    set({ filters: {} });
+    await get().fetchPrompts();
+  },
+
+  setSelectionMode(on) {
+    set((s) => ({ selectionMode: on, selectedIds: on ? s.selectedIds : [] }));
+  },
+
+  toggleSelected(id) {
+    set((s) => ({
+      selectedIds: s.selectedIds.includes(id)
+        ? s.selectedIds.filter((x) => x !== id)
+        : [...s.selectedIds, id],
+    }));
+  },
+
+  clearSelection() {
+    set({ selectedIds: [], selectionMode: false });
   },
 }));

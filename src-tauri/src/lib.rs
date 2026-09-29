@@ -1,15 +1,19 @@
 use std::sync::Arc;
 
-use prompt_core::PromptRepository;
+use prompt_core::{CategoryRepository, ProjectRepository, PromptRepository, TagRepository};
 use tauri::Manager;
 
 use ipc::AppState;
-use storage::SqlitePromptRepository;
+use storage::{
+    Db, SqliteCategoryRepository, SqliteProjectRepository, SqlitePromptRepository,
+    SqliteTagRepository,
+};
 
 /// 应用初始化入口（对应架构方案 4.3）。
 ///
-/// M1 装配：在应用数据目录打开（或创建）明文 SQLite 数据库 `prompt.db`，
-/// 构造 `SqlitePromptRepository` 注入 `AppState`，并注册 ping + 提示词五命令。
+/// M2 装配：在应用数据目录打开（或创建）明文 SQLite 数据库 `prompt.db`，
+/// 四个组织层仓库（提示词 / 项目 / 标签 / 分类）共享同一条 `Db` 连接，
+/// 构造后统一注入 `AppState`，并注册 ping + 提示词五命令 + 14 个组织层命令。
 /// 加密 / 密钥派生归 M4，本阶段不引入 SQLCipher。
 pub fn run() {
     tauri::Builder::default()
@@ -18,8 +22,22 @@ pub fn run() {
             std::fs::create_dir_all(&data_dir)?;
             let db_path = data_dir.join("prompt.db");
 
-            let repo: Arc<dyn PromptRepository> = Arc::new(SqlitePromptRepository::open(&db_path)?);
-            app.manage(AppState { prompt_repo: repo });
+            let db = Db::open(&db_path)?;
+            let prompt_repo: Arc<dyn PromptRepository> =
+                Arc::new(SqlitePromptRepository::new(db.clone()));
+            let project_repo: Arc<dyn ProjectRepository> =
+                Arc::new(SqliteProjectRepository::new(db.clone()));
+            let tag_repo: Arc<dyn TagRepository> =
+                Arc::new(SqliteTagRepository::new(db.clone()));
+            let category_repo: Arc<dyn CategoryRepository> =
+                Arc::new(SqliteCategoryRepository::new(db));
+
+            app.manage(AppState {
+                prompt_repo,
+                project_repo,
+                tag_repo,
+                category_repo,
+            });
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -29,6 +47,20 @@ pub fn run() {
             ipc::commands::prompt::update_prompt,
             ipc::commands::prompt::delete_prompt,
             ipc::commands::prompt::search_prompts,
+            ipc::commands::prompt::set_prompt_relations,
+            ipc::commands::prompt::batch_update_prompts,
+            ipc::commands::category::list_categories,
+            ipc::commands::category::create_category,
+            ipc::commands::category::update_category,
+            ipc::commands::category::delete_category,
+            ipc::commands::project::list_projects,
+            ipc::commands::project::create_project,
+            ipc::commands::project::update_project,
+            ipc::commands::project::delete_project,
+            ipc::commands::tag::list_tags,
+            ipc::commands::tag::create_tag,
+            ipc::commands::tag::update_tag,
+            ipc::commands::tag::delete_tag,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -39,13 +71,23 @@ mod tests {
     use super::*;
     use tauri::test::{get_ipc_response, mock_builder, mock_context, noop_assets, INVOKE_KEY};
 
-    /// 构造一个注入了内存数据库 Repository、只注册提示词命令的 mock 应用。
+    /// 构造一个注入了共享内存数据库四个仓库、只注册提示词命令的 mock 应用。
     fn mock_app() -> tauri::App<tauri::test::MockRuntime> {
-        let repo: Arc<dyn PromptRepository> =
-            Arc::new(SqlitePromptRepository::open_in_memory().expect("打开内存数据库失败"));
+        let db = Db::open_in_memory().expect("打开内存数据库失败");
+        let prompt_repo: Arc<dyn PromptRepository> =
+            Arc::new(SqlitePromptRepository::new(db.clone()));
+        let project_repo: Arc<dyn ProjectRepository> =
+            Arc::new(SqliteProjectRepository::new(db.clone()));
+        let tag_repo: Arc<dyn TagRepository> = Arc::new(SqliteTagRepository::new(db.clone()));
+        let category_repo: Arc<dyn CategoryRepository> = Arc::new(SqliteCategoryRepository::new(db));
 
         mock_builder()
-            .manage(AppState { prompt_repo: repo })
+            .manage(AppState {
+                prompt_repo,
+                project_repo,
+                tag_repo,
+                category_repo,
+            })
             .invoke_handler(tauri::generate_handler![
                 ipc::commands::prompt::get_prompts,
                 ipc::commands::prompt::create_prompt,

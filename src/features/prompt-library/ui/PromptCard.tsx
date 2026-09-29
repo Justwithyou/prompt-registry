@@ -1,5 +1,8 @@
-import { Link } from "react-router";
+import type { MouseEvent } from "react";
+import { useNavigate } from "react-router";
 import type { Prompt } from "../../../entities/prompt/types";
+import { usePromptStore } from "../stores/promptStore";
+import { Icon } from "../../../shared/ui/Icon";
 
 /** 截取纯文本摘要（去除常见 Markdown 标记）。 */
 function excerpt(source: string, max = 72): string {
@@ -20,15 +23,59 @@ function formatTime(iso: string): string {
 }
 
 /**
- * 提示词卡片（prompt-library/ui）。
- * 纯展示组件：标题、分类、摘要、收藏/置顶/评分与更新时间。
+ * 提示词卡片（prompt-library/ui，M2 D3/D4）。
+ * 纯展示 + 快捷操作：标题、分类、收藏/置顶/评分与更新时间；
+ * 卡片底部提供一键收藏/置顶/评分；多选模式下显示选择框。
+ * 单击卡片进入编辑器；按钮区域拦截冒泡不触发跳转。
  */
 export function PromptCard({ prompt }: { prompt: Prompt }) {
+  const navigate = useNavigate();
+  const selectionMode = usePromptStore((s) => s.selectionMode);
+  const selectedIds = usePromptStore((s) => s.selectedIds);
+  const toggleSelected = usePromptStore((s) => s.toggleSelected);
+  const setPromptRelations = usePromptStore((s) => s.setPromptRelations);
+
   const rating = Math.max(0, Math.min(5, prompt.rating));
+  const selected = selectedIds.includes(prompt.id);
+
+  function open() {
+    navigate(`/prompts/${prompt.id}`);
+  }
+
+  function stop(e: MouseEvent) {
+    e.stopPropagation();
+  }
+
+  function toggleFavorite() {
+    void setPromptRelations(prompt.id, { isFavorite: !prompt.isFavorite });
+  }
+
+  function togglePinned() {
+    void setPromptRelations(prompt.id, { isPinned: !prompt.isPinned });
+  }
+
+  function handleRatingStar(e: MouseEvent, value: number) {
+    stop(e);
+    void setPromptRelations(prompt.id, {
+      rating: rating === value ? 0 : value,
+    });
+  }
 
   return (
-    <Link to={`/prompts/${prompt.id}`} className="prompt-card">
+    <div
+      className={`prompt-card${selected ? " is-selected" : ""}`}
+      onClick={open}
+    >
       <div className="prompt-card-header">
+        {selectionMode && (
+          <input
+            type="checkbox"
+            className="prompt-card-check"
+            checked={selected}
+            onClick={stop}
+            onChange={() => toggleSelected(prompt.id)}
+          />
+        )}
         <span className="prompt-card-title">{prompt.title}</span>
         <span className="prompt-card-badges">
           {prompt.isPinned && <span className="badge badge-pin">置顶</span>}
@@ -40,10 +87,7 @@ export function PromptCard({ prompt }: { prompt: Prompt }) {
         {prompt.category && (
           <span className="prompt-card-category">{prompt.category}</span>
         )}
-        <span
-          className="prompt-card-rating"
-          title={`评分 ${prompt.rating} / 5`}
-        >
+        <span className="prompt-card-rating" title={`评分 ${prompt.rating} / 5`}>
           {rating > 0 ? "★".repeat(rating) : "未评分"}
         </span>
       </div>
@@ -52,9 +96,42 @@ export function PromptCard({ prompt }: { prompt: Prompt }) {
         {prompt.description ?? excerpt(prompt.content)}
       </p>
 
-      <div className="prompt-card-footer">
+      <div className="prompt-card-footer" onClick={stop}>
         <span className="prompt-card-time">{formatTime(prompt.updatedAt)}</span>
+        <div className="prompt-card-actions">
+          <button
+            type="button"
+            className={`quick-btn${prompt.isFavorite ? " is-active-fav" : ""}`}
+            title={prompt.isFavorite ? "取消收藏" : "收藏"}
+            onClick={toggleFavorite}
+          >
+            <Icon name={prompt.isFavorite ? "star-filled" : "star"} size={14} />
+          </button>
+          <button
+            type="button"
+            className={`quick-btn${prompt.isPinned ? " is-active-pin" : ""}`}
+            title={prompt.isPinned ? "取消置顶" : "置顶"}
+            onClick={togglePinned}
+          >
+            <Icon name="pin" size={14} />
+          </button>
+          <span className="quick-rating" title="点击星星评分">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n}
+                type="button"
+                className="quick-star"
+                onClick={(e) => handleRatingStar(e, n)}
+              >
+                <Icon
+                  name={n <= rating ? "star-filled" : "star"}
+                  size={12}
+                />
+              </button>
+            ))}
+          </span>
+        </div>
       </div>
-    </Link>
+    </div>
   );
 }

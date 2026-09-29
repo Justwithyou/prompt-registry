@@ -44,7 +44,10 @@ impl Connection {
 mod migrations {
     use rusqlite::{Connection, Result};
 
-    const MIGRATIONS: &[(i64, &str)] = &[(1, include_str!("../../migrations/0001_init.sql"))];
+    const MIGRATIONS: &[(i64, &str)] = &[
+        (1, include_str!("../../migrations/0001_init.sql")),
+        (2, include_str!("../../migrations/0002_organize.sql")),
+    ];
 
     pub fn run(conn: &mut Connection) -> Result<()> {
         conn.execute_batch(

@@ -1,10 +1,7 @@
 /**
- * 标签领域模型（前端类型，与 crates/core/src/models/tag.rs 对齐）。
- * 支持层级标签：parentId 指向父标签。
+ * 标签领域模型（前端类型）。
+ *
+ * 契约单一事实源在 `shared/api/commands.ts`（对应架构方案 3.5）。本文件仅做再导出，
+ * 供 feature 切片通过 entities 层引用实体类型，避免 shared 与 entities 出现两份定义。
  */
-export interface Tag {
-  id: string;
-  name: string;
-  parentId: string | null;
-  color: string | null;
-}
+export type { Tag, CreateTagInput, UpdateTagInput } from "../../shared/api/commands";

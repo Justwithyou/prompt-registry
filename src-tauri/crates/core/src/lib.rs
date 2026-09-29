@@ -9,5 +9,9 @@ pub mod models;
 pub mod traits;
 
 pub use errors::AppError;
-pub use models::{CreatePromptInput, Prompt, PromptQuery, Project, Tag, UpdatePromptInput};
-pub use traits::PromptRepository;
+pub use models::{
+    BatchUpdateInput, Category, CreateCategoryInput, CreateProjectInput, CreatePromptInput,
+    CreateTagInput, Project, Prompt, PromptQuery, PromptRelationsInput, PromptSortBy, Tag,
+    UpdateCategoryInput, UpdateProjectInput, UpdatePromptInput, UpdateTagInput,
+};
+pub use traits::{CategoryRepository, ProjectRepository, PromptRepository, TagRepository};

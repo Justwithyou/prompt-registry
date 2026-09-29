@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { usePromptStore } from "../stores/promptStore";
+import { Icon } from "../../../shared/ui/Icon";
 import { PromptList } from "./PromptList";
 import { PromptCard } from "./PromptCard";
-import { Icon } from "../../../shared/ui/Icon";
+import { PromptFilterBar } from "./PromptFilterBar";
 
 /**
- * 提示词库列表页（prompt-library/ui）。
+ * 提示词库列表页（prompt-library/ui，M2 D3/D4）。
  *
- * 组成：命令栏（页面标识 + 卡片/列表视图切换 + 新建）+ 筛选 chips + 网格/列表。
- * 参考 AI Gist 展示布局：顶部命令栏承载「页面身份 + 视图切换 + 主操作」三区。
- * M1-I1 起数据来自真实 promptStore（真实 IPC → SQLite）；分类 chips 由当前列表派生。
+ * 组成：命令栏（页面标识 + 视图切换 + 批量 + 新建）+ 联合筛选条 + 批量工具栏插槽 + 网格/列表。
+ * M2-I1 起数据来自真实 promptStore（服务器端组合筛选），支持排序、批量、收藏/置顶/评分。
+ * 批量工具栏由 app 层组合注入（FSD：prompt-library 不直接依赖 batch）。
  */
 
 type ViewMode = "grid" | "list";
@@ -20,11 +22,12 @@ function initialViewMode(): ViewMode {
   return localStorage.getItem(VIEW_KEY) === "list" ? "list" : "grid";
 }
 
-export function PromptLibraryPage() {
+export function PromptLibraryPage({ batchToolbar }: { batchToolbar?: ReactNode }) {
   const prompts = usePromptStore((s) => s.prompts);
-  const filters = usePromptStore((s) => s.filters);
-  const fetchPrompts = usePromptStore((s) => s.fetchPrompts);
+  const selectionMode = usePromptStore((s) => s.selectionMode);
+  const setSelectionMode = usePromptStore((s) => s.setSelectionMode);
   const createPrompt = usePromptStore((s) => s.createPrompt);
+  const fetchPrompts = usePromptStore((s) => s.fetchPrompts);
   const navigate = useNavigate();
 
   const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
@@ -33,22 +36,9 @@ export function PromptLibraryPage() {
     void fetchPrompts();
   }, [fetchPrompts]);
 
-  const categories = Array.from(
-    new Set(prompts.map((p) => p.category).filter((c): c is string => c != null)),
-  );
-
   async function handleCreate() {
     const created = await createPrompt({ title: "未命名提示词", content: "" });
     navigate(`/prompts/${created.id}`);
-  }
-
-  function selectCategory(category: string | null) {
-    // fetchPrompts 与现有 filters 合并，仅更新 category，保留置顶等其他条件
-    fetchPrompts({ category: category ?? undefined });
-  }
-
-  function togglePinned() {
-    fetchPrompts({ isPinned: filters.isPinned ? undefined : true });
   }
 
   function switchView(mode: ViewMode) {
@@ -88,45 +78,29 @@ export function PromptLibraryPage() {
           </button>
         </nav>
 
+        <button
+          type="button"
+          className={`btn-ghost${selectionMode ? " is-active" : ""}`}
+          onClick={() => setSelectionMode(!selectionMode)}
+        >
+          <Icon name="check" size={16} />
+          批量
+        </button>
+
         <button type="button" className="btn-primary" onClick={handleCreate}>
           <Icon name="plus" size={16} />
           新建
         </button>
       </header>
 
-      <div className="filter-chips">
-        <button
-          type="button"
-          className={`chip${filters.category == null ? " is-active" : ""}`}
-          onClick={() => selectCategory(null)}
-        >
-          全部
-        </button>
-        {categories.map((c) => (
-          <button
-            key={c}
-            type="button"
-            className={`chip${filters.category === c ? " is-active" : ""}`}
-            onClick={() => selectCategory(c)}
-          >
-            {c}
-          </button>
-        ))}
-        <span className="filter-divider" />
-        <button
-          type="button"
-          className={`chip${filters.isPinned ? " is-active" : ""}`}
-          onClick={togglePinned}
-        >
-          <Icon name="pin" size={14} />
-          仅看置顶
-        </button>
-      </div>
+      {batchToolbar}
+
+      <PromptFilterBar />
 
       {viewMode === "grid" ? (
         <div className="prompt-grid">
           {prompts.length === 0 ? (
-            <div className="prompt-list-empty">暂无提示词，点击「新建」开始。</div>
+            <div className="prompt-list-empty">暂无提示词。</div>
           ) : (
             prompts.map((p) => <PromptCard key={p.id} prompt={p} />)
           )}

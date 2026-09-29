@@ -1,4 +1,7 @@
-use prompt_core::{AppError, CreatePromptInput, Prompt, PromptQuery, UpdatePromptInput};
+use prompt_core::{
+    AppError, BatchUpdateInput, CreatePromptInput, Prompt, PromptQuery, PromptRelationsInput,
+    UpdatePromptInput,
+};
 use tauri::State;
 
 use crate::state::AppState;
@@ -48,4 +51,24 @@ pub fn search_prompts(
     keyword: String,
 ) -> Result<Vec<Prompt>, AppError> {
     state.prompt_repo.search(&keyword)
+}
+
+/// 一次性更新某条提示词的组织关系与快捷标记（M2 组织层）。
+#[tauri::command]
+pub fn set_prompt_relations(
+    state: State<'_, AppState>,
+    id: String,
+    relations: PromptRelationsInput,
+) -> Result<Prompt, AppError> {
+    state.prompt_repo.set_relations(&id, &relations)
+}
+
+/// 批量操作（批量打标签 / 移动项目 / 删除）。
+#[tauri::command]
+pub fn batch_update_prompts(
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+    batch: BatchUpdateInput,
+) -> Result<(), AppError> {
+    state.prompt_repo.batch_update(&ids, &batch)
 }

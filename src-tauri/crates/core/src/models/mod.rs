@@ -1,7 +1,12 @@
-pub mod prompt;
+pub mod category;
 pub mod project;
+pub mod prompt;
 pub mod tag;
 
-pub use prompt::{CreatePromptInput, Prompt, PromptQuery, UpdatePromptInput};
-pub use project::Project;
-pub use tag::Tag;
+pub use category::{Category, CreateCategoryInput, UpdateCategoryInput};
+pub use project::{CreateProjectInput, Project, UpdateProjectInput};
+pub use prompt::{
+    BatchUpdateInput, CreatePromptInput, Prompt, PromptQuery, PromptRelationsInput, PromptSortBy,
+    UpdatePromptInput,
+};
+pub use tag::{CreateTagInput, Tag, UpdateTagInput};

@@ -8,6 +8,9 @@
 export type {
   Prompt,
   PromptQuery,
+  PromptSortBy,
   CreatePromptInput,
   UpdatePromptInput,
+  PromptRelationsInput,
+  BatchUpdateInput,
 } from "../../shared/api/commands";

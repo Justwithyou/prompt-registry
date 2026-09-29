@@ -3,4 +3,7 @@
  * 对应架构方案 3.2 的 tagStore。
  * 内部结构：components/ hooks/ stores/ api/ types/
  */
-export {};
+export { useTagStore } from "./stores/tagStore";
+export type { TagStore } from "./stores/tagStore";
+export { TagManager } from "./ui/TagManager";
+export { TagCloud } from "./ui/TagCloud";

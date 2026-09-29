@@ -11,7 +11,10 @@ pub struct Prompt {
     pub title: String,
     pub content: String,
     pub description: Option<String>,
+    /// M1 遗留的字符串分类（保留兼容读）。
     pub category: Option<String>,
+    /// M2 树形分类外键（指向 `categories.id`，供「按分类筛选」）。
+    pub category_id: Option<String>,
     pub is_pinned: bool,
     pub is_favorite: bool,
     pub rating: i32,
@@ -52,8 +55,49 @@ pub struct UpdatePromptInput {
 #[serde(rename_all = "camelCase", default)]
 pub struct PromptQuery {
     pub keyword: Option<String>,
+    /// M1 遗留的字符串分类（保留兼容读；M2 起新增 `category_id` 指向树形分类）。
     pub category: Option<String>,
     pub is_pinned: Option<bool>,
     pub limit: Option<u32>,
     pub offset: Option<u32>,
+    // —— M2 组织层新增：多维联合筛选 ——
+    pub project_id: Option<String>,
+    pub tag_ids: Option<Vec<String>>,
+    pub category_id: Option<String>,
+    pub is_favorite: Option<bool>,
+    pub sort_by: Option<PromptSortBy>,
+}
+
+/// 列表排序字段（M2 新增，对应 `sortBy: updatedAt | rating | createdAt`）。
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum PromptSortBy {
+    UpdatedAt,
+    Rating,
+    CreatedAt,
+}
+
+/// 一次性更新某条提示词的组织关系与快捷标记（供卡片快捷操作与元数据面板复用）。
+///
+/// 全字段 `Option`，`None` 表示不修改。
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct PromptRelationsInput {
+    pub project_ids: Option<Vec<String>>,
+    pub tag_ids: Option<Vec<String>>,
+    /// 分配到树形分类（`Some` 设置，`None` 保持不变）。
+    pub category_id: Option<String>,
+    pub is_pinned: Option<bool>,
+    pub is_favorite: Option<bool>,
+    pub rating: Option<i32>,
+}
+
+/// 批量操作入参（批量打标签 / 移动项目 / 删除）。
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct BatchUpdateInput {
+    pub add_tag_ids: Option<Vec<String>>,
+    pub remove_tag_ids: Option<Vec<String>>,
+    pub set_project_id: Option<String>,
+    pub delete: bool,
 }

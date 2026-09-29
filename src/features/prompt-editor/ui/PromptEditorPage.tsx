@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { useNavigate, useParams } from "react-router";
 import { usePromptStore } from "../../prompt-library/index";
 import { CopyButton } from "../../search/index";
@@ -26,7 +27,15 @@ interface Draft {
  *
  * M1-I1：数据来自真实 promptStore；冷启动直接进入编辑器会先 fetchPrompts 再按 id 定位。
  */
-export function PromptEditorPage() {
+interface PromptEditorPageProps {
+  templatePanel?: ReactNode;
+  versionPanel?: ReactNode;
+}
+
+export function PromptEditorPage({
+  templatePanel,
+  versionPanel,
+}: PromptEditorPageProps) {
   const { id } = useParams();
   const navigate = useNavigate();
   const prompts = usePromptStore((s) => s.prompts);
@@ -76,6 +85,9 @@ export function PromptEditorPage() {
   }, [source, id, initializedId]);
 
   const [confirming, setConfirming] = useState(false);
+  const [activePanel, setActivePanel] = useState<
+    "template" | "version" | null
+  >(null);
 
   const autosave = useDebouncedCallback((snapshot: Draft) => {
     if (!id) return;
@@ -138,6 +150,26 @@ export function PromptEditorPage() {
           onChange={(e) => patchText({ title: e.target.value })}
         />
         <div className="editor-actions">
+          <button
+            type="button"
+            className={`btn-ghost${activePanel === "template" ? " is-active" : ""}`}
+            onClick={() =>
+              setActivePanel(activePanel === "template" ? null : "template")
+            }
+          >
+            <Icon name="braces" size={16} />
+            模板
+          </button>
+          <button
+            type="button"
+            className={`btn-ghost${activePanel === "version" ? " is-active" : ""}`}
+            onClick={() =>
+              setActivePanel(activePanel === "version" ? null : "version")
+            }
+          >
+            <Icon name="history" size={16} />
+            版本
+          </button>
           <CopyButton text={d.content} />
           <button
             type="button"
@@ -185,6 +217,25 @@ export function PromptEditorPage() {
           />
         </aside>
       </div>
+
+      {activePanel && (
+        <div className="editor-overlay" onClick={() => setActivePanel(null)}>
+          <div
+            className="editor-overlay-card"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="overlay-close"
+              onClick={() => setActivePanel(null)}
+              title="关闭"
+            >
+              <Icon name="x" size={18} />
+            </button>
+            {activePanel === "template" ? templatePanel : versionPanel}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

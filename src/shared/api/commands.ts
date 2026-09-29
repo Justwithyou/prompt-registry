@@ -271,6 +271,58 @@ export async function batchUpdatePrompts(
   return invoke<void>("batch_update_prompts", { ids, batch });
 }
 
+// ===== 模板与版本模型类型（M3 冻结契约，与 crates/core/src/models/ 对齐）=====
+
+/** 模板变量定义（`extract_variables` 产物，对应 prompts 模板 `{{变量}}`） */
+export interface VariableDefinition {
+  name: string;
+  defaultValue: string | null;
+  options: string[] | null;
+  description: string | null;
+}
+
+/** 提示词历史版本实体（对应 `prompt_versions` 表） */
+export interface PromptVersion {
+  id: string;
+  promptId: string;
+  /** 语义化版本号 `主.次.补丁`（默认 `0.1.0` 起）。 */
+  version: string;
+  content: string;
+  changeSummary: string | null;
+  createdAt: string;
+}
+
+// ===== 模板与版本命令（M3 冻结契约）=====
+
+/** 从模板正文提取 `{{变量名}}` 列表 */
+export async function extractVariables(
+  content: string,
+): Promise<VariableDefinition[]> {
+  return invoke<VariableDefinition[]>("extract_variables", { content });
+}
+
+/** 列出某提示词的全部历史版本 */
+export async function listPromptVersions(
+  promptId: string,
+): Promise<PromptVersion[]> {
+  return invoke<PromptVersion[]>("list_prompt_versions", { promptId });
+}
+
+/** 获取单个版本详情 */
+export async function getPromptVersion(
+  versionId: string,
+): Promise<PromptVersion> {
+  return invoke<PromptVersion>("get_prompt_version", { versionId });
+}
+
+/** 回滚到指定历史版本（追加式，生成新版本） */
+export async function rollbackPromptVersion(
+  promptId: string,
+  versionId: string,
+): Promise<Prompt> {
+  return invoke<Prompt>("rollback_prompt_version", { promptId, versionId });
+}
+
 // ===== 连通性探针（M0）=====
 
 export async function ping(): Promise<string> {
@@ -278,7 +330,5 @@ export async function ping(): Promise<string> {
 }
 
 // ===== 待接入命令契约（按里程碑逐步开放）=====
-// 模板：  render_template / extract_variables
-// 版本：  get_versions / diff_versions / rollback_version
 // 同步：  sync_now / get_sync_status
 // 安全：  unlock_vault / lock_vault / change_master_password

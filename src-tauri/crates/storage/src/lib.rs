@@ -11,5 +11,6 @@ pub mod sqlite;
 
 pub use repository::{
     SqliteCategoryRepository, SqliteProjectRepository, SqlitePromptRepository, SqliteTagRepository,
+    SqliteVersionRepository,
 };
 pub use sqlite::{Connection, Db};

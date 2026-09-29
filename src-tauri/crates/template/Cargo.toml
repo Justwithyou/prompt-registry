@@ -2,3 +2,8 @@
 name = "template"
 version = "0.1.0"
 edition = "2021"
+
+[dependencies]
+# crate 名 "core" 与标准库 core 冲突，引用处使用别名 prompt_core（package 仍名为 core）
+prompt_core = { package = "core", path = "../core" }
+regex = "1"

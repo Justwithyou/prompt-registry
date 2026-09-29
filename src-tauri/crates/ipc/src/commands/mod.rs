@@ -2,6 +2,8 @@ pub mod category;
 pub mod project;
 pub mod prompt;
 pub mod tag;
+pub mod template;
+pub mod version;
 
 /// 连通性探针命令（M0）。
 ///

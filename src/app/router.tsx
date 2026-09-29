@@ -6,6 +6,8 @@ import { CategoryManager } from "../features/catalog/index";
 import { TagManager } from "../features/tag-management/index";
 import { ProjectManager } from "../features/project-management/index";
 import { BatchToolbar } from "../features/batch/index";
+import { TemplateUsePanel } from "../features/template-engine/index";
+import { VersionHistoryPanel } from "../features/version-control/index";
 import { AppLayout } from "./AppLayout";
 
 /**
@@ -23,7 +25,15 @@ export const router = createHashRouter([
         path: "prompts",
         element: <PromptLibraryPage batchToolbar={<BatchToolbar />} />,
       },
-      { path: "prompts/:id", element: <PromptEditorPage /> },
+      {
+        path: "prompts/:id",
+        element: (
+          <PromptEditorPage
+            templatePanel={<TemplateUsePanel />}
+            versionPanel={<VersionHistoryPanel />}
+          />
+        ),
+      },
       { path: "categories", element: <CategoryManager /> },
       { path: "tags", element: <TagManager /> },
       { path: "projects", element: <ProjectManager /> },

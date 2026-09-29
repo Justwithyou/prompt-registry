@@ -2438,6 +2438,7 @@ dependencies = [
  "storage",
  "tauri",
  "tauri-build",
+ "template",
 ]
 
 [[package]]
@@ -3365,6 +3366,10 @@ dependencies = [
 [[package]]
 name = "template"
 version = "0.1.0"
+dependencies = [
+ "core",
+ "regex",
+]
 
 [[package]]
 name = "tendril"

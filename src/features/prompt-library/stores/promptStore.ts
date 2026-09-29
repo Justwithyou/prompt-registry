@@ -8,6 +8,7 @@ import type {
   BatchUpdateInput,
 } from "../../../entities/prompt/types";
 import * as promptApi from "../api";
+import { useVersionStore } from "../../version-control";
 
 /**
  * 提示词库状态（Zustand store）。
@@ -89,6 +90,8 @@ export const usePromptStore = create<PromptStore>()((set, get) => ({
     set((state) => ({
       prompts: state.prompts.map((p) => (p.id === id ? updated : p)),
     }));
+    // M3：防抖保存成功后，后端已写入一条自动版本记录，异步刷新该提示词的版本列表。
+    void useVersionStore.getState().fetchVersions(id);
   },
 
   async deletePrompt(id) {

@@ -7,3 +7,4 @@
  */
 export { usePromptStore } from "./stores/promptStore";
 export type { PromptStore } from "./stores/promptStore";
+export { PromptLibraryPage } from "./ui/PromptLibraryPage";

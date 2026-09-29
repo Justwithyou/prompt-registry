@@ -2,3 +2,11 @@
 name = "storage"
 version = "0.1.0"
 edition = "2021"
+
+[dependencies]
+# 明文 SQLite（M1）；加密 / 密钥派生归 M4，不引入 bundled-sqlcipher。
+rusqlite = { version = "0.32", features = ["bundled"] }
+uuid = { version = "1", features = ["v4"] }
+chrono = "0.4"
+# crate 名 "core" 与标准库 core 冲突，引用处使用别名 prompt_core（package 仍名为 core）
+prompt_core = { package = "core", path = "../core" }

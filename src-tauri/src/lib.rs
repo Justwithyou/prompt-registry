@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use prompt_core::{
-    CategoryRepository, ProjectRepository, PromptRepository, TagRepository, TemplateExtractor,
-    VersionRepository,
+    CategoryRepository, ProjectRepository, PromptRepository, SyncEngine, TagRepository,
+    TemplateExtractor, VaultProvider, VersionRepository,
 };
 use tauri::Manager;
 
@@ -12,6 +12,7 @@ use storage::{
     SqliteTagRepository, SqliteVersionRepository,
 };
 use template::RegexTemplateExtractor;
+use crypto::CryptoVault;
 
 /// 应用初始化入口（对应架构方案 4.3）。
 ///
@@ -38,6 +39,10 @@ pub fn run() {
             let version_repo: Arc<dyn VersionRepository> =
                 Arc::new(SqliteVersionRepository::new(db));
             let template_extractor: Arc<dyn TemplateExtractor> = Arc::new(RegexTemplateExtractor);
+            // M4 装配：密钥保险库（Argon2id + Master Key，先不含 OS 钥匙串自动解锁），
+            // 同步引擎由轨道 C 实现，当前以 None 过渡。
+            let vault: Arc<dyn VaultProvider> = Arc::new(CryptoVault::new());
+            let sync_engine: Option<Arc<dyn SyncEngine>> = None;
 
             app.manage(AppState {
                 prompt_repo,
@@ -46,6 +51,8 @@ pub fn run() {
                 category_repo,
                 version_repo,
                 template_extractor,
+                vault,
+                sync_engine,
             });
             Ok(())
         })
@@ -74,6 +81,14 @@ pub fn run() {
             ipc::commands::version::list_prompt_versions,
             ipc::commands::version::get_prompt_version,
             ipc::commands::version::rollback_prompt_version,
+            ipc::commands::vault::setup_vault,
+            ipc::commands::vault::unlock_vault,
+            ipc::commands::vault::lock_vault,
+            ipc::commands::vault::change_password,
+            ipc::commands::vault::is_locked,
+            ipc::commands::sync::configure_sync,
+            ipc::commands::sync::sync_now,
+            ipc::commands::sync::get_sync_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -96,6 +111,8 @@ mod tests {
             Arc::new(SqliteCategoryRepository::new(db.clone()));
         let version_repo: Arc<dyn VersionRepository> = Arc::new(SqliteVersionRepository::new(db));
         let template_extractor: Arc<dyn TemplateExtractor> = Arc::new(RegexTemplateExtractor);
+        let vault: Arc<dyn VaultProvider> = Arc::new(CryptoVault::new());
+        let sync_engine: Option<Arc<dyn SyncEngine>> = None;
 
         mock_builder()
             .manage(AppState {
@@ -105,6 +122,8 @@ mod tests {
                 category_repo,
                 version_repo,
                 template_extractor,
+                vault,
+                sync_engine,
             })
             .invoke_handler(tauri::generate_handler![
                 ipc::commands::prompt::get_prompts,
@@ -114,6 +133,10 @@ mod tests {
                 ipc::commands::prompt::search_prompts,
                 ipc::commands::template::extract_variables,
                 ipc::commands::version::list_prompt_versions,
+                ipc::commands::vault::setup_vault,
+                ipc::commands::vault::unlock_vault,
+                ipc::commands::vault::lock_vault,
+                ipc::commands::vault::is_locked,
             ])
             .build(mock_context(noop_assets()))
             .expect("failed to build mock app")
@@ -250,5 +273,74 @@ mod tests {
             versions.is_empty(),
             "空库 list_prompt_versions 应返回空列表"
         );
+    }
+
+    /// 对 mock webview 发起一次命令调用并取回可反序列化的响应体。
+    fn invoke(
+        webview: &tauri::WebviewWindow<tauri::test::MockRuntime>,
+        cmd: &str,
+        body: serde_json::Value,
+    ) -> tauri::ipc::InvokeResponseBody {
+        get_ipc_response(
+            webview,
+            tauri::webview::InvokeRequest {
+                cmd: cmd.into(),
+                callback: tauri::ipc::CallbackFn(0),
+                error: tauri::ipc::CallbackFn(1),
+                url: "http://tauri.localhost".parse().unwrap(),
+                body: tauri::ipc::InvokeBody::Json(body),
+                headers: Default::default(),
+                invoke_key: INVOKE_KEY.to_string(),
+            },
+        )
+        .expect("invoke 失败")
+    }
+
+    /// M4-D3 冒烟：`is_locked` 初始（未 setup）应为锁定态。
+    #[test]
+    fn is_locked_initial_state() {
+        let app = mock_app();
+        let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .expect("failed to build webview");
+
+        let res = invoke(&webview, "is_locked", serde_json::json!({}));
+        let locked: bool = res.deserialize().expect("反序列化 is_locked 失败");
+        assert!(locked, "初始（未 setup）is_locked 应为 true");
+    }
+
+    /// M4-D3 冒烟：setup → 未锁定 → lock → 锁定 → unlock → 未锁定 全链路。
+    #[test]
+    fn setup_lock_unlock_roundtrip() {
+        let app = mock_app();
+        let webview = tauri::WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .expect("failed to build webview");
+
+        invoke(
+            &webview,
+            "setup_vault",
+            serde_json::json!({ "password": "pw-123" }),
+        );
+
+        let unlocked = invoke(&webview, "is_locked", serde_json::json!({}));
+        let locked: bool = unlocked.deserialize().expect("反序列化 is_locked 失败");
+        assert!(!locked, "setup 后 is_locked 应为 false");
+
+        invoke(&webview, "lock_vault", serde_json::json!({}));
+
+        let relocked = invoke(&webview, "is_locked", serde_json::json!({}));
+        let locked: bool = relocked.deserialize().expect("反序列化 is_locked 失败");
+        assert!(locked, "lock 后 is_locked 应为 true");
+
+        invoke(
+            &webview,
+            "unlock_vault",
+            serde_json::json!({ "password": "pw-123" }),
+        );
+
+        let reunlocked = invoke(&webview, "is_locked", serde_json::json!({}));
+        let locked: bool = reunlocked.deserialize().expect("反序列化 is_locked 失败");
+        assert!(!locked, "unlock 后 is_locked 应为 false");
     }
 }

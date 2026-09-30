@@ -2,3 +2,18 @@
 name = "sync"
 version = "0.1.0"
 edition = "2021"
+
+[dependencies]
+# crate 名 "core" 与标准库 core 冲突，引用处使用别名 prompt_core（package 仍名为 core）
+prompt_core = { package = "core", path = "../core" }
+# WebDAV 客户端（PUT/GET/PROPFIND/MKCOL），TLS 走 rustls 避免 openssl 系统依赖（M4-C1/C2）
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = "0.4"
+# PROPFIND 返回的多播 XML 中提取 href（M4-C2）
+regex = "1"
+
+[dev-dependencies]
+# 集成测试中构造 SyncLogEntry 与 mock trait（SyncCipher/RemoteStore 实现）
+prompt_core = { package = "core", path = "../core" }

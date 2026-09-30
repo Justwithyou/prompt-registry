@@ -21,6 +21,7 @@ prompt_core = { package = "core", path = "crates/core" }
 ipc = { path = "crates/ipc" }
 storage = { path = "crates/storage" }
 template = { path = "crates/template" }
+crypto = { path = "crates/crypto" }
 
 [dev-dependencies]
 tauri = { version = "2", features = ["test"] }

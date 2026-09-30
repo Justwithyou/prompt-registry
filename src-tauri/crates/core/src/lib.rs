@@ -11,11 +11,11 @@ pub mod traits;
 pub use errors::AppError;
 pub use models::{
     BatchUpdateInput, Category, CreateCategoryInput, CreateProjectInput, CreatePromptInput,
-    CreateTagInput, Project, Prompt, PromptQuery, PromptRelationsInput, PromptSortBy,
-    PromptVersion, Tag, UpdateCategoryInput, UpdateProjectInput, UpdatePromptInput, UpdateTagInput,
-    VariableDefinition,
+    CreateTagInput, EncryptedPayload, Project, Prompt, PromptQuery, PromptRelationsInput,
+    PromptSortBy, PromptVersion, SyncConfig, SyncLogEntry, SyncResult, SyncStatus, Tag,
+    UpdateCategoryInput, UpdateProjectInput, UpdatePromptInput, UpdateTagInput, VariableDefinition,
 };
 pub use traits::{
-    CategoryRepository, ProjectRepository, PromptRepository, TagRepository, TemplateExtractor,
-    VersionRepository,
+    CategoryRepository, ProjectRepository, PromptRepository, RemoteStore, SyncCipher, SyncEngine,
+    TagRepository, TemplateExtractor, VaultProvider, VersionRepository,
 };

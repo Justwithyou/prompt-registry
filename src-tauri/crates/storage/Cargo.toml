@@ -4,8 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# 明文 SQLite（M1）；加密 / 密钥派生归 M4，不引入 bundled-sqlcipher。
-rusqlite = { version = "0.32", features = ["bundled"] }
+# M4-B1：切到 SQLCipher（bundled-sqlcipher），支持明文↔加密迁移；
+# 锁 libsqlite3-sys 版本（=0.30.1）以统一 SQLCipher 实现，全轨一致（M4 分工清单 §10.3）。
+rusqlite = { version = "0.32", features = ["bundled-sqlcipher"] }
+libsqlite3-sys = { version = "=0.30.1", features = ["bundled-sqlcipher"] }
 uuid = { version = "1", features = ["v4"] }
 chrono = "0.4"
 # crate 名 "core" 与标准库 core 冲突，引用处使用别名 prompt_core（package 仍名为 core）

@@ -28,11 +28,30 @@ impl Db {
 
     /// 打开文件数据库并完成迁移。
     pub fn open(path: &Path) -> Result<Self, AppError> {
-        let mut conn = Connection::open(path).map_err(db_err)?;
+        Self::open_with_key(path, None)
+    }
+
+    /// 以可选密钥打开文件数据库并完成迁移（M4-B2）。
+    ///
+    /// `Some(key)` → SQLCipher 加密库（`PRAGMA key`）；`None` → 明文打开。
+    /// 是否已设口令由上层（装配阶段）依据保险库状态决定。
+    pub fn open_with_key(path: &Path, key: Option<&[u8; 32]>) -> Result<Self, AppError> {
+        let mut conn = match key {
+            Some(k) => Connection::open_with_key(path, k).map_err(db_err)?,
+            None => Connection::open(path).map_err(db_err)?,
+        };
         conn.migrate().map_err(db_err)?;
         Ok(Self {
             conn: Arc::new(Mutex::new(conn)),
         })
+    }
+
+    /// 将已打开的明文库就地迁移为加密库（`PRAGMA rekey`，M4-B2）。
+    ///
+    /// 供首次设置口令时调用；调用后旧数据仍在，但需以同一密钥重新打开方可读取。
+    pub fn rekey(&self, key: &[u8; 32]) -> Result<(), AppError> {
+        let mut conn = self.lock()?;
+        conn.rekey(key).map_err(db_err)
     }
 
     /// 获取底层连接锁（供 Repository 内部读写 / 开启事务）。

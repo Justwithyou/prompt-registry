@@ -816,6 +816,61 @@ html[data-theme="light"] .prompt-card-category {
 }
 
 /* ============================================================
+ * M4（加密与同步）UI 样式 —— 轨道 E 专用。
+ * 保险库口令/锁定表单、WebDAV 配置表单、同步状态。
+ * ============================================================ */
+
+.settings-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.6rem;
+  margin-top: 0.35rem;
+}
+
+.settings-stack > .btn-primary,
+.settings-stack > .btn-ghost {
+  align-self: flex-start;
+}
+
+.settings-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  font-size: 0.88rem;
+  color: var(--fg);
+  cursor: pointer;
+}
+
+.settings-check input {
+  accent-color: var(--accent);
+}
+
+.settings-stats {
+  align-items: flex-start;
+}
+
+.settings-error {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  color: var(--danger);
+  background: var(--danger-bg);
+  font-size: 0.85rem;
+}
+
+.settings-notice {
+  margin-top: 0.75rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  color: var(--fg);
+  font-size: 0.85rem;
+}
+
+/* ============================================================
  * M2（组织层）UI 样式 —— 轨道 D 专用。
  * 分类/标签/项目管理器、联合筛选条、卡片快捷操作、批量工具栏、侧栏项目浏览。
  * ============================================================ */

@@ -1,13 +1,21 @@
 pub mod category_repository;
 pub mod project_repository;
 pub mod prompt_repository;
+pub mod remote_store;
+pub mod sync_cipher;
+pub mod sync_engine;
 pub mod tag_repository;
 pub mod template_extractor;
+pub mod vault_provider;
 pub mod version_repository;
 
 pub use category_repository::CategoryRepository;
 pub use project_repository::ProjectRepository;
 pub use prompt_repository::PromptRepository;
+pub use remote_store::RemoteStore;
+pub use sync_cipher::SyncCipher;
+pub use sync_engine::SyncEngine;
 pub use tag_repository::TagRepository;
 pub use template_extractor::TemplateExtractor;
+pub use vault_provider::VaultProvider;
 pub use version_repository::VersionRepository;

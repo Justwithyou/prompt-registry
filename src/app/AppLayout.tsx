@@ -52,6 +52,7 @@ export function AppLayout() {
     { to: "/categories", label: "分类", icon: "folder" as const, end: false },
     { to: "/tags", label: "标签", icon: "tag" as const, end: false },
     { to: "/projects", label: "项目", icon: "briefcase" as const, end: false },
+    { to: "/sync", label: "同步", icon: "sync" as const, end: false },
     { to: "/settings", label: "设置", icon: "settings" as const, end: false },
   ];
 

@@ -323,6 +323,76 @@ export async function rollbackPromptVersion(
   return invoke<Prompt>("rollback_prompt_version", { promptId, versionId });
 }
 
+// ===== 密钥与同步模型类型（M4 冻结契约，与 crates/core/src/models/ 对齐）=====
+
+/** WebDAV 同步配置（`configure_sync` 入参） */
+export interface SyncConfig {
+  url: string;
+  username: string;
+  /** 可选令牌；缺省时回退 Basic Auth。 */
+  token?: string | null;
+  enabled: boolean;
+}
+
+/** 同步状态（`get_sync_status` 返回） */
+export interface SyncStatus {
+  lastSyncAt: string | null;
+  pendingChanges: number;
+  deviceId: string;
+}
+
+/** 单次同步结果（`sync_now` 返回） */
+export interface SyncResult {
+  pushed: number;
+  pulled: number;
+  merged: number;
+}
+
+// ===== 密钥与同步命令（M4 冻结契约）=====
+
+/** 首次设置主口令（数据库升级为 SQLCipher 加密） */
+export async function setupVault(password: string): Promise<void> {
+  return invoke<void>("setup_vault", { password });
+}
+
+/** 解锁保险库 */
+export async function unlockVault(password: string): Promise<void> {
+  return invoke<void>("unlock_vault", { password });
+}
+
+/** 锁定保险库 */
+export async function lockVault(): Promise<void> {
+  return invoke<void>("lock_vault");
+}
+
+/** 修改主口令（仅重新包装 Master Key） */
+export async function changePassword(
+  oldPw: string,
+  newPw: string,
+): Promise<void> {
+  return invoke<void>("change_password", { oldPw, newPw });
+}
+
+/** 是否处于锁定态 */
+export async function isLocked(): Promise<boolean> {
+  return invoke<boolean>("is_locked");
+}
+
+/** 配置 WebDAV 同步目标 */
+export async function configureSync(config: SyncConfig): Promise<void> {
+  return invoke<void>("configure_sync", { config });
+}
+
+/** 立即执行一次同步 */
+export async function syncNow(): Promise<SyncResult> {
+  return invoke<SyncResult>("sync_now");
+}
+
+/** 查询当前同步状态 */
+export async function getSyncStatus(): Promise<SyncStatus> {
+  return invoke<SyncStatus>("get_sync_status");
+}
+
 // ===== 连通性探针（M0）=====
 
 export async function ping(): Promise<string> {
@@ -330,5 +400,4 @@ export async function ping(): Promise<string> {
 }
 
 // ===== 待接入命令契约（按里程碑逐步开放）=====
-// 同步：  sync_now / get_sync_status
-// 安全：  unlock_vault / lock_vault / change_master_password
+// （M1～M4 命令已全部冻结；M5 打磨/打包与 P2 AI 辅助若新增命令，在此补充。）

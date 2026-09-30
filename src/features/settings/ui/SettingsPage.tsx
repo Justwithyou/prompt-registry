@@ -2,6 +2,7 @@ import { useState } from "react";
 import { usePromptStore } from "../../prompt-library/index";
 import { useSettingsStore } from "../stores/settingsStore";
 import { Icon } from "../../../shared/ui/Icon";
+import { VaultPanel } from "./VaultPanel";
 
 /**
  * 设置页骨架（settings/ui）。
@@ -48,6 +49,8 @@ export function SettingsPage() {
           </button>
         </div>
       </section>
+
+      <VaultPanel />
 
       <section className="settings-section">
         <h3>存储</h3>

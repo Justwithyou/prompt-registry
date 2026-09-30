@@ -33,7 +33,8 @@ export type IconName =
   | "menu"
   | "history"
   | "rotate-ccw"
-  | "braces";
+  | "braces"
+  | "sync";
 
 const PATHS: Record<IconName, ReactNode> = {
   search: (
@@ -196,6 +197,13 @@ const PATHS: Record<IconName, ReactNode> = {
     <>
       <path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1" />
       <path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1" />
+    </>
+  ),
+  sync: (
+    <>
+      <polyline points="23 4 23 10 17 10" />
+      <polyline points="1 20 1 14 7 14" />
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
     </>
   ),
 };

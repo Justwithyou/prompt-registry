@@ -8,6 +8,7 @@ import { ProjectManager } from "../features/project-management/index";
 import { BatchToolbar } from "../features/batch/index";
 import { TemplateUsePanel } from "../features/template-engine/index";
 import { VersionHistoryPanel } from "../features/version-control/index";
+import { SyncPanel } from "../features/sync/index";
 import { AppLayout } from "./AppLayout";
 
 /**
@@ -37,6 +38,7 @@ export const router = createHashRouter([
       { path: "categories", element: <CategoryManager /> },
       { path: "tags", element: <TagManager /> },
       { path: "projects", element: <ProjectManager /> },
+      { path: "sync", element: <SyncPanel /> },
       { path: "settings", element: <SettingsPage /> },
     ],
   },

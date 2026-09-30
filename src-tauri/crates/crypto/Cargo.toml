@@ -2,3 +2,19 @@
 name = "crypto"
 version = "0.1.0"
 edition = "2021"
+
+[dependencies]
+# crate 名 "core" 与标准库 core 冲突，引用处使用别名 prompt_core（package 仍名为 core）
+prompt_core = { package = "core", path = "../core" }
+# Argon2id 密钥派生（M4-A2）
+argon2 = "0.5"
+# AES-256-GCM 加密原语（M4-A2/A3）
+aes-gcm = "0.10"
+# HKDF 用于从 sync_key 派生消息密钥（M4-A3）
+hkdf = "0.12"
+# SHA-256 作为 HKDF 的 PRK 哈希（M4-A3）
+sha2 = "0.10"
+# 安全随机数（盐 / nonce / Master Key 生成）
+rand = "0.8"
+# OS 钥匙串（可选自动解锁），跨平台凭据存储后端（M4-A4）
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }

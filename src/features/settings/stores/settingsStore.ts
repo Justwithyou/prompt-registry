@@ -5,7 +5,11 @@ import { create } from "zustand";
  * 对应架构方案 3.2 的 settingsStore：用户偏好（主题、存储位置）与版本信息。
  */
 
-export type Theme = "dark" | "light";
+/** M5：主题三态（跟随系统 / 亮 / 暗），默认跟随系统（系统解析由 M5-B1 实现）。 */
+export type Theme = "system" | "dark" | "light";
+
+/** 解析后的实际主题：system 下由 prefers-color-scheme 解析为 dark/light。 */
+export type ResolvedTheme = "dark" | "light";
 
 export interface SettingsStore {
   theme: Theme;
@@ -33,7 +37,7 @@ function initialSidebarCollapsed(): boolean {
 export const useSettingsStore = create<SettingsStore>()((set, get) => ({
   theme: initialTheme(),
   storageLocation: "C:\\Users\\<user>\\AppData\\Roaming\\prompt-manager\\vault.db",
-  appVersion: "0.1.0",
+  appVersion: "1.0.0",
   sidebarCollapsed: initialSidebarCollapsed(),
 
   setTheme(theme) {

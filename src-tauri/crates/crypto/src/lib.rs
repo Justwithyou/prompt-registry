@@ -8,6 +8,6 @@ pub mod cipher;
 pub mod keyring;
 pub mod vault;
 
-pub use cipher::AesGcmCipher;
+pub use cipher::{derive_sync_key, AesGcmCipher};
 pub use keyring::{KeychainStore, SecretStore};
 pub use vault::CryptoVault;

@@ -18,6 +18,9 @@ const NONCE_LEN: usize = 12;
 /// HKDF domain separation（与已加密数据兼容性绑定，不可私改）。
 const HKDF_INFO: &[u8] = b"prompt-manager/sync/v1";
 
+/// 从 Master Key 派生同步密钥的 HKDF domain separation（与数据库密钥域隔离，不可私改）。
+const SYNC_KEY_INFO: &[u8] = b"prompt-manager/sync-key/v1";
+
 /// AES-256-GCM + HKDF 同步加密管道的默认实现。
 #[derive(Debug, Default, Clone)]
 pub struct AesGcmCipher;
@@ -33,6 +36,17 @@ fn derive_key(sync_key: &[u8; KEY_LEN], salt: &[u8]) -> Result<[u8; KEY_LEN], Ap
     hkdf.expand(HKDF_INFO, &mut okm)
         .map_err(|_| AppError::Crypto("HKDF 派生消息密钥失败".to_string()))?;
     Ok(okm)
+}
+
+/// 从 Master Key 经 HKDF 派生独立于数据库密钥的同步密钥（M4-C，域隔离）。
+///
+/// 同步数据加密密钥不与 SQLCipher 数据库密钥共享，避免任一密钥泄露殃及另一侧。
+pub fn derive_sync_key(master_key: &[u8; KEY_LEN]) -> [u8; KEY_LEN] {
+    let hkdf = Hkdf::<Sha256>::new(None, master_key);
+    let mut okm = [0u8; KEY_LEN];
+    hkdf.expand(SYNC_KEY_INFO, &mut okm)
+        .expect("HKDF 扩展固定长度输出必然成功");
+    okm
 }
 
 impl SyncCipher for AesGcmCipher {

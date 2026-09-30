@@ -1,18 +1,39 @@
 use std::sync::Arc;
 
 use prompt_core::{
-    CategoryRepository, ProjectRepository, PromptRepository, SyncEngine, TagRepository,
-    TemplateExtractor, VaultProvider, VersionRepository,
+    CategoryRepository, ProjectRepository, PromptRepository, SyncCipher, SyncConfigStore,
+    SyncEngine, SyncLogStore, TagRepository, TemplateExtractor, VaultProvider, VersionRepository,
 };
 use tauri::Manager;
 
+use crypto::{AesGcmCipher, CryptoVault};
 use ipc::AppState;
 use storage::{
     Db, SqliteCategoryRepository, SqliteProjectRepository, SqlitePromptRepository,
-    SqliteTagRepository, SqliteVersionRepository,
+    SqliteSyncLogStore, SqliteTagRepository, SqliteVersionRepository,
 };
+use sync::Engine;
 use template::RegexTemplateExtractor;
-use crypto::CryptoVault;
+
+/// 同步能力三元组（变更日志 / 配置仓库 / 引擎），供 `assemble_sync` 返回值复用。
+type SyncAssembly = (
+    Arc<dyn SyncLogStore>,
+    Arc<dyn SyncConfigStore>,
+    Arc<dyn SyncEngine>,
+);
+
+/// 装配同步能力：共享同一 `Db` 的变更日志 / 配置仓库 + 真正的同步引擎。
+///
+/// 返回三元组分别注入 `AppState` 的 `sync_log_store` / `sync_config_store` / `sync_engine`。
+fn assemble_sync(db: &Db) -> Result<SyncAssembly, prompt_core::AppError> {
+    let store = Arc::new(SqliteSyncLogStore::new(db.clone())?);
+    let device_id = store.device_id().to_string();
+    let log_store: Arc<dyn SyncLogStore> = store.clone();
+    let config_store: Arc<dyn SyncConfigStore> = store.clone();
+    let cipher: Arc<dyn SyncCipher> = Arc::new(AesGcmCipher);
+    let engine: Arc<dyn SyncEngine> = Arc::new(Engine::new(cipher, log_store.clone(), device_id));
+    Ok((log_store, config_store, engine))
+}
 
 /// 应用初始化入口（对应架构方案 4.3）。
 ///
@@ -37,12 +58,12 @@ pub fn run() {
             let category_repo: Arc<dyn CategoryRepository> =
                 Arc::new(SqliteCategoryRepository::new(db.clone()));
             let version_repo: Arc<dyn VersionRepository> =
-                Arc::new(SqliteVersionRepository::new(db));
+                Arc::new(SqliteVersionRepository::new(db.clone()));
             let template_extractor: Arc<dyn TemplateExtractor> = Arc::new(RegexTemplateExtractor);
             // M4 装配：密钥保险库（Argon2id + Master Key，先不含 OS 钥匙串自动解锁），
-            // 同步引擎由轨道 C 实现，当前以 None 过渡。
+            // 同步变更日志 + 配置仓库 + 引擎完整装配（M4-C 闭环）。
             let vault: Arc<dyn VaultProvider> = Arc::new(CryptoVault::new());
-            let sync_engine: Option<Arc<dyn SyncEngine>> = None;
+            let (sync_log_store, sync_config_store, sync_engine) = assemble_sync(&db)?;
 
             app.manage(AppState {
                 prompt_repo,
@@ -52,6 +73,8 @@ pub fn run() {
                 version_repo,
                 template_extractor,
                 vault,
+                sync_log_store,
+                sync_config_store,
                 sync_engine,
             });
             Ok(())
@@ -109,10 +132,12 @@ mod tests {
         let tag_repo: Arc<dyn TagRepository> = Arc::new(SqliteTagRepository::new(db.clone()));
         let category_repo: Arc<dyn CategoryRepository> =
             Arc::new(SqliteCategoryRepository::new(db.clone()));
-        let version_repo: Arc<dyn VersionRepository> = Arc::new(SqliteVersionRepository::new(db));
+        let version_repo: Arc<dyn VersionRepository> =
+            Arc::new(SqliteVersionRepository::new(db.clone()));
         let template_extractor: Arc<dyn TemplateExtractor> = Arc::new(RegexTemplateExtractor);
         let vault: Arc<dyn VaultProvider> = Arc::new(CryptoVault::new());
-        let sync_engine: Option<Arc<dyn SyncEngine>> = None;
+        let (sync_log_store, sync_config_store, sync_engine) =
+            assemble_sync(&db).expect("装配同步能力失败");
 
         mock_builder()
             .manage(AppState {
@@ -123,6 +148,8 @@ mod tests {
                 version_repo,
                 template_extractor,
                 vault,
+                sync_log_store,
+                sync_config_store,
                 sync_engine,
             })
             .invoke_handler(tauri::generate_handler![

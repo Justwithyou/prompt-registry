@@ -19,7 +19,9 @@ pub fn create_project(
     state: State<'_, AppState>,
     input: CreateProjectInput,
 ) -> Result<Project, AppError> {
-    state.project_repo.create(&input)
+    let project = state.project_repo.create(&input)?;
+    crate::sync_hook::record_json(&state, "project", &project.id, "create", &project);
+    Ok(project)
 }
 
 /// 更新项目（字段级局部更新）。
@@ -29,11 +31,15 @@ pub fn update_project(
     id: String,
     input: UpdateProjectInput,
 ) -> Result<Project, AppError> {
-    state.project_repo.update(&id, &input)
+    let project = state.project_repo.update(&id, &input)?;
+    crate::sync_hook::record_json(&state, "project", &project.id, "update", &project);
+    Ok(project)
 }
 
 /// 删除项目。
 #[tauri::command]
 pub fn delete_project(state: State<'_, AppState>, id: String) -> Result<(), AppError> {
-    state.project_repo.delete(&id)
+    state.project_repo.delete(&id)?;
+    crate::sync_hook::record_delete(&state, "project", &id);
+    Ok(())
 }

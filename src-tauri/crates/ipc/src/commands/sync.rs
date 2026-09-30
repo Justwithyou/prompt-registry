@@ -1,38 +1,55 @@
-use prompt_core::{AppError, SyncConfig, SyncResult, SyncStatus};
+use crypto::derive_sync_key;
+use prompt_core::{AppError, RemoteStore, SyncConfig, SyncResult, SyncStatus};
+use sync::{WebDavClient, SYNC_DIR};
 use tauri::State;
 
 use crate::state::AppState;
 
 // Phase 0 冻结的命令签名（对应 M4 分工清单 §3.2）。
 // 命令名 + 入参/出参类型即前后端契约，变更需广播。
-// M4-D1：从 `State<AppState>` 取 sync 依赖，实现同步流程。
-//
-// 说明：`SyncEngine` 由轨道 C（sync crate）实现，当前尚未就绪，
-// AppState 以 `Option<Arc<dyn SyncEngine>>` 过渡注入 None。
-// 命令先做锁定态校验，再在引擎缺失时返回明确的「未就绪」错误，
-// 待 M4-C 完成并注入具体实现后，以下 TODO 接线点即启用。
+// M4-C 完整闭环：从 `State<AppState>` 取同步依赖，实现配置持久化 + 真正执行同步。
 
-/// 配置 WebDAV 同步目标。
+/// 配置 WebDAV 同步目标（持久化；若启用则验证远端可达并创建同步目录）。
 #[tauri::command]
 pub fn configure_sync(state: State<'_, AppState>, config: SyncConfig) -> Result<(), AppError> {
-    let _ = config;
     state.ensure_unlocked()?;
-    // TODO(M4-C 完成后接线)：将 `config` 持久化并交由 SyncEngine 使用。
-    Err(AppError::Sync("同步引擎未就绪（轨道 C 尚未实现）".into()))
+    state.sync_config_store.save_config(&config)?;
+
+    // 启用时尽早暴露网络 / 认证错误（MKCOL 已存在目录视为成功，幂等）。
+    if config.enabled {
+        let remote = WebDavClient::from_config(&config);
+        remote.mkcol(SYNC_DIR)?;
+    }
+    Ok(())
 }
 
 /// 立即执行一次同步（拉取合并 + 推送）。
 #[tauri::command]
 pub fn sync_now(state: State<'_, AppState>) -> Result<SyncResult, AppError> {
     state.ensure_unlocked()?;
-    // TODO(M4-C 完成后接线)：构建 RemoteStore 并调用 `SyncEngine::sync_once`。
-    Err(AppError::Sync("同步引擎未就绪（轨道 C 尚未实现）".into()))
+
+    let config = state
+        .sync_config_store
+        .load_config()?
+        .ok_or_else(|| AppError::Sync("尚未配置同步目标".into()))?;
+    if !config.enabled {
+        return Err(AppError::Sync("同步未启用".into()));
+    }
+
+    // 从 Master Key 派生同步密钥（与数据库密钥域隔离），每次同步前注入。
+    let master_key = state.vault.master_key()?;
+    let sync_key = derive_sync_key(&master_key);
+    state.sync_engine.set_sync_key(Some(sync_key))?;
+
+    let remote = WebDavClient::from_config(&config);
+    // 尽力创建远端目录（避开 WebDAV 服务未自动建目录的场景）。
+    let _ = remote.mkcol(SYNC_DIR);
+    state.sync_engine.sync_once(&remote)
 }
 
 /// 查询当前同步状态。
 #[tauri::command]
 pub fn get_sync_status(state: State<'_, AppState>) -> Result<SyncStatus, AppError> {
     state.ensure_unlocked()?;
-    // TODO(M4-C 完成后接线)：返回引擎维护的同步状态。
-    Err(AppError::Sync("同步引擎未就绪（轨道 C 尚未实现）".into()))
+    Ok(state.sync_engine.status())
 }

@@ -25,7 +25,9 @@ pub fn create_prompt(
     state: State<'_, AppState>,
     input: CreatePromptInput,
 ) -> Result<Prompt, AppError> {
-    state.prompt_repo.create(&input)
+    let prompt = state.prompt_repo.create(&input)?;
+    crate::sync_hook::record_json(&state, "prompt", &prompt.id, "create", &prompt);
+    Ok(prompt)
 }
 
 /// 更新提示词（字段级局部更新）。
@@ -35,13 +37,17 @@ pub fn update_prompt(
     id: String,
     input: UpdatePromptInput,
 ) -> Result<Prompt, AppError> {
-    state.prompt_repo.update(&id, &input)
+    let prompt = state.prompt_repo.update(&id, &input)?;
+    crate::sync_hook::record_json(&state, "prompt", &prompt.id, "update", &prompt);
+    Ok(prompt)
 }
 
 /// 删除提示词（软删除，标记 deleted_at）。
 #[tauri::command]
 pub fn delete_prompt(state: State<'_, AppState>, id: String) -> Result<(), AppError> {
-    state.prompt_repo.delete(&id)
+    state.prompt_repo.delete(&id)?;
+    crate::sync_hook::record_delete(&state, "prompt", &id);
+    Ok(())
 }
 
 /// 全文搜索提示词（FTS5）。
@@ -60,7 +66,9 @@ pub fn set_prompt_relations(
     id: String,
     relations: PromptRelationsInput,
 ) -> Result<Prompt, AppError> {
-    state.prompt_repo.set_relations(&id, &relations)
+    let prompt = state.prompt_repo.set_relations(&id, &relations)?;
+    crate::sync_hook::record_json(&state, "prompt", &prompt.id, "update", &prompt);
+    Ok(prompt)
 }
 
 /// 批量操作（批量打标签 / 移动项目 / 删除）。

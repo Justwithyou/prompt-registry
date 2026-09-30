@@ -6,8 +6,8 @@
 use std::sync::{Arc, RwLock};
 
 use prompt_core::{
-    AppError, EncryptedPayload, RemoteStore, SyncCipher, SyncEngine, SyncLogEntry, SyncResult,
-    SyncStatus,
+    AppError, EncryptedPayload, RemoteStore, SyncCipher, SyncEngine, SyncLogEntry, SyncLogStore,
+    SyncResult, SyncStatus,
 };
 
 use crate::crdt::merge_entries;
@@ -15,50 +15,42 @@ use crate::crdt::merge_entries;
 /// 同步密钥长度（AES-256-GCM 的 256 位密钥）。
 pub const SYNC_KEY_LEN: usize = 32;
 
-/// 远端同步数据包路径（固定文件名，位于所配置 WebDAV 目录下）。
+/// 远端同步数据包所在目录。
+pub const SYNC_DIR: &str = "prompt-manager";
+
+/// 远端同步数据包路径（固定文件名，位于 [`SYNC_DIR`] 下）。
 pub const SYNC_PATH: &str = "prompt-manager/sync-log.bin";
 
 fn sync_err(msg: impl Into<String>) -> AppError {
     AppError::Sync(msg.into())
 }
 
-/// 本地变更日志抽象（sync crate 私有，M4-C3）。
-///
-/// - `pending`：采集待同步的本地变更。
-/// - `apply`：把合并结果写回本地数据（含跨设备冲突的 LWW 结果）。
-/// - `mark_synced`：成功推送后清除已同步的本地日志。
-pub trait SyncLogStore: Send + Sync {
-    fn pending(&self) -> Result<Vec<SyncLogEntry>, AppError>;
-    fn apply(&self, entries: &[SyncLogEntry]) -> Result<(), AppError>;
-    fn mark_synced(&self, entries: &[SyncLogEntry]) -> Result<(), AppError>;
-}
-
 /// 同步引擎默认实现。
 ///
-/// 持有加密管道（`SyncCipher`，来自轨道 A 的 trait）与本地日志仓库（`SyncLogStore`），
-/// 两者均以 trait 对象注入，实现解耦。
+/// 持有加密管道（`SyncCipher`，来自轨道 A 的 trait）与本地日志仓库（`SyncLogStore`，
+/// 来自 core 的 trait），两者均以 trait 对象注入，实现解耦。
 pub struct Engine {
     cipher: Arc<dyn SyncCipher>,
     store: Arc<dyn SyncLogStore>,
     device_id: String,
-    sync_key: [u8; SYNC_KEY_LEN],
+    /// 同步密钥由 Master Key 派生，解锁后才可用，故以 `Option` 动态注入。
+    sync_key: RwLock<Option<[u8; SYNC_KEY_LEN]>>,
     remote_path: String,
     last_sync_at: RwLock<Option<String>>,
 }
 
 impl Engine {
-    /// 构造引擎；`sync_key` 由装配层从 Master Key 派生（轨道 D 负责），引擎不持有口令。
+    /// 构造引擎；不持有口令，同步密钥经 [`Self::set_sync_key`] 在每次同步前注入。
     pub fn new(
         cipher: Arc<dyn SyncCipher>,
         store: Arc<dyn SyncLogStore>,
         device_id: impl Into<String>,
-        sync_key: [u8; SYNC_KEY_LEN],
     ) -> Self {
         Self {
             cipher,
             store,
             device_id: device_id.into(),
-            sync_key,
+            sync_key: RwLock::new(None),
             remote_path: SYNC_PATH.to_string(),
             last_sync_at: RwLock::new(None),
         }
@@ -75,20 +67,19 @@ impl Engine {
         &self.device_id
     }
 
-    /// 同步状态快照（`get_sync_status` 数据源）。
-    pub fn status(&self) -> SyncStatus {
-        let last_sync_at = self.last_sync_at.read().ok().and_then(|g| g.clone());
-        SyncStatus {
-            last_sync_at,
-            pending_changes: self.store.pending().map(|v| v.len() as u32).unwrap_or(0),
-            device_id: self.device_id.clone(),
-        }
+    /// 取当前同步密钥；未注入（保险库尚未解锁）时返回错误。
+    fn key(&self) -> Result<[u8; SYNC_KEY_LEN], AppError> {
+        self.sync_key
+            .read()
+            .map_err(|_| sync_err("同步密钥状态锁已中毒"))?
+            .ok_or_else(|| sync_err("同步密钥未就绪（保险库未解锁）"))
     }
 
     /// 加密本地日志并上传远端。
     fn upload(&self, remote: &dyn RemoteStore, entries: &[SyncLogEntry]) -> Result<(), AppError> {
+        let key = self.key()?;
         let plaintext = serde_json::to_vec(entries).map_err(|e| sync_err(e.to_string()))?;
-        let payload = self.cipher.encrypt(&plaintext, &self.sync_key)?;
+        let payload = self.cipher.encrypt(&plaintext, &key)?;
         let data = serde_json::to_vec(&payload).map_err(|e| sync_err(e.to_string()))?;
         remote.put(&self.remote_path, &data)
     }
@@ -100,9 +91,10 @@ impl Engine {
             Err(AppError::NotFound(_)) => return Ok(None),
             Err(e) => return Err(e),
         };
+        let key = self.key()?;
         let payload: EncryptedPayload =
             serde_json::from_slice(&data).map_err(|e| sync_err(e.to_string()))?;
-        let plaintext = self.cipher.decrypt(&payload, &self.sync_key)?;
+        let plaintext = self.cipher.decrypt(&payload, &key)?;
         let entries: Vec<SyncLogEntry> =
             serde_json::from_slice(&plaintext).map_err(|e| sync_err(e.to_string()))?;
         Ok(Some(entries))
@@ -110,8 +102,26 @@ impl Engine {
 }
 
 impl SyncEngine for Engine {
+    fn set_sync_key(&self, key: Option<[u8; SYNC_KEY_LEN]>) -> Result<(), AppError> {
+        let mut guard = self
+            .sync_key
+            .write()
+            .map_err(|_| sync_err("同步密钥状态锁已中毒"))?;
+        *guard = key;
+        Ok(())
+    }
+
     fn collect_pending(&self) -> Result<Vec<SyncLogEntry>, AppError> {
         self.store.pending()
+    }
+
+    fn status(&self) -> SyncStatus {
+        let last_sync_at = self.last_sync_at.read().ok().and_then(|g| g.clone());
+        SyncStatus {
+            last_sync_at,
+            pending_changes: self.store.pending().map(|v| v.len() as u32).unwrap_or(0),
+            device_id: self.device_id.clone(),
+        }
     }
 
     fn sync_once(&self, remote: &dyn RemoteStore) -> Result<SyncResult, AppError> {

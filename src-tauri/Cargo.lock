@@ -1745,6 +1745,10 @@ name = "ipc"
 version = "0.1.0"
 dependencies = [
  "core",
+ "crypto",
+ "serde",
+ "serde_json",
+ "sync",
  "tauri",
 ]
 
@@ -2696,7 +2700,7 @@ dependencies = [
 
 [[package]]
 name = "prompt-manager"
-version = "0.1.0"
+version = "1.0.0"
 dependencies = [
  "core",
  "crypto",
@@ -2704,6 +2708,7 @@ dependencies = [
  "serde",
  "serde_json",
  "storage",
+ "sync",
  "tauri",
  "tauri-build",
  "template",
@@ -3504,6 +3509,7 @@ dependencies = [
  "core",
  "libsqlite3-sys",
  "rusqlite",
+ "serde_json",
  "uuid",
 ]
 

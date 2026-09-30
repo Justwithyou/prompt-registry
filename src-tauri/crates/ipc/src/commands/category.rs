@@ -19,7 +19,9 @@ pub fn create_category(
     state: State<'_, AppState>,
     input: CreateCategoryInput,
 ) -> Result<Category, AppError> {
-    state.category_repo.create(&input)
+    let category = state.category_repo.create(&input)?;
+    crate::sync_hook::record_json(&state, "category", &category.id, "create", &category);
+    Ok(category)
 }
 
 /// 更新分类（字段级局部更新）。
@@ -29,11 +31,15 @@ pub fn update_category(
     id: String,
     input: UpdateCategoryInput,
 ) -> Result<Category, AppError> {
-    state.category_repo.update(&id, &input)
+    let category = state.category_repo.update(&id, &input)?;
+    crate::sync_hook::record_json(&state, "category", &category.id, "update", &category);
+    Ok(category)
 }
 
 /// 删除分类。
 #[tauri::command]
 pub fn delete_category(state: State<'_, AppState>, id: String) -> Result<(), AppError> {
-    state.category_repo.delete(&id)
+    state.category_repo.delete(&id)?;
+    crate::sync_hook::record_delete(&state, "category", &id);
+    Ok(())
 }

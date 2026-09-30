@@ -16,6 +16,7 @@ pub use models::{
     UpdateCategoryInput, UpdateProjectInput, UpdatePromptInput, UpdateTagInput, VariableDefinition,
 };
 pub use traits::{
-    CategoryRepository, ProjectRepository, PromptRepository, RemoteStore, SyncCipher, SyncEngine,
-    TagRepository, TemplateExtractor, VaultProvider, VersionRepository,
+    CategoryRepository, ProjectRepository, PromptRepository, RemoteStore, SyncCipher,
+    SyncConfigStore, SyncEngine, SyncLogStore, TagRepository, TemplateExtractor, VaultProvider,
+    VersionRepository,
 };

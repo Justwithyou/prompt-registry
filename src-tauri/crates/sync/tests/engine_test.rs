@@ -3,8 +3,10 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-use prompt_core::{AppError, EncryptedPayload, RemoteStore, SyncCipher, SyncEngine, SyncLogEntry};
-use sync::{Engine, SyncLogStore};
+use prompt_core::{
+    AppError, EncryptedPayload, RemoteStore, SyncCipher, SyncEngine, SyncLogEntry, SyncLogStore,
+};
+use sync::Engine;
 
 fn entry(
     entity_type: &str,
@@ -71,6 +73,26 @@ impl MemStore {
 }
 
 impl SyncLogStore for MemStore {
+    fn record(
+        &self,
+        entity_type: &str,
+        entity_id: &str,
+        operation: &str,
+        payload: &str,
+    ) -> Result<(), AppError> {
+        let entry = SyncLogEntry {
+            id: entity_id.to_string(),
+            entity_type: entity_type.to_string(),
+            entity_id: entity_id.to_string(),
+            operation: operation.to_string(),
+            payload: payload.to_string(),
+            hlc: "0-0".to_string(),
+            device_id: "test".to_string(),
+        };
+        self.pending.lock().unwrap().push(entry);
+        Ok(())
+    }
+
     fn pending(&self) -> Result<Vec<SyncLogEntry>, AppError> {
         Ok(self.pending.lock().unwrap().clone())
     }
@@ -121,7 +143,9 @@ impl RemoteStore for MemRemote {
 }
 
 fn make_engine(store: Arc<MemStore>, device_id: &str) -> Engine {
-    Engine::new(Arc::new(XorCipher), store, device_id.to_string(), [7u8; 32])
+    let engine = Engine::new(Arc::new(XorCipher), store, device_id.to_string());
+    engine.set_sync_key(Some([7u8; 32])).unwrap();
+    engine
 }
 
 #[test]

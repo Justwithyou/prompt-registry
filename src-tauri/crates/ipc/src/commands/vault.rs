@@ -22,10 +22,11 @@ pub fn unlock_vault(state: State<'_, AppState>, password: String) -> Result<(), 
     state.vault.unlock(&password)
 }
 
-/// 锁定保险库（清除内存 Master Key）。
+/// 锁定保险库（清除内存 Master Key 与同步引擎密钥）。
 #[tauri::command]
 pub fn lock_vault(state: State<'_, AppState>) -> Result<(), AppError> {
-    state.vault.lock()
+    state.vault.lock()?;
+    state.sync_engine.set_sync_key(None)
 }
 
 /// 修改主口令（仅重新包装 Master Key，数据密钥不变）。

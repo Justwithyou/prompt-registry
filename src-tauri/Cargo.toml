@@ -1,6 +1,6 @@
 [package]
 name = "prompt-manager"
-version = "0.1.0"
+version = "1.0.0"
 description = "个人提示词管理平台"
 authors = ["prompt-manager"]
 edition = "2021"
@@ -22,6 +22,7 @@ ipc = { path = "crates/ipc" }
 storage = { path = "crates/storage" }
 template = { path = "crates/template" }
 crypto = { path = "crates/crypto" }
+sync = { path = "crates/sync" }
 
 [dev-dependencies]
 tauri = { version = "2", features = ["test"] }

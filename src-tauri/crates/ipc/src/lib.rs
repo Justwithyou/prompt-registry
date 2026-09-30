@@ -3,5 +3,6 @@
 
 pub mod commands;
 pub mod state;
+pub mod sync_hook;
 
 pub use state::AppState;

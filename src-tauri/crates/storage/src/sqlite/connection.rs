@@ -118,6 +118,7 @@ mod migrations {
         (1, include_str!("../../migrations/0001_init.sql")),
         (2, include_str!("../../migrations/0002_organize.sql")),
         (3, include_str!("../../migrations/0003_versioning.sql")),
+        (4, include_str!("../../migrations/0004_sync_log.sql")),
     ];
 
     pub fn run(conn: &mut Connection) -> Result<()> {

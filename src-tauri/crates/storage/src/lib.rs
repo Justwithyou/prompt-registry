@@ -10,7 +10,7 @@ pub mod repository;
 pub mod sqlite;
 
 pub use repository::{
-    SqliteCategoryRepository, SqliteProjectRepository, SqlitePromptRepository, SqliteTagRepository,
-    SqliteVersionRepository,
+    SqliteCategoryRepository, SqliteProjectRepository, SqlitePromptRepository, SqliteSyncLogStore,
+    SqliteTagRepository, SqliteVersionRepository,
 };
 pub use sqlite::{Connection, Db};

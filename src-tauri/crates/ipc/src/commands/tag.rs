@@ -16,7 +16,9 @@ pub fn list_tags(state: State<'_, AppState>) -> Result<Vec<Tag>, AppError> {
 /// 创建标签。
 #[tauri::command]
 pub fn create_tag(state: State<'_, AppState>, input: CreateTagInput) -> Result<Tag, AppError> {
-    state.tag_repo.create(&input)
+    let tag = state.tag_repo.create(&input)?;
+    crate::sync_hook::record_json(&state, "tag", &tag.id, "create", &tag);
+    Ok(tag)
 }
 
 /// 更新标签（字段级局部更新）。
@@ -26,11 +28,15 @@ pub fn update_tag(
     id: String,
     input: UpdateTagInput,
 ) -> Result<Tag, AppError> {
-    state.tag_repo.update(&id, &input)
+    let tag = state.tag_repo.update(&id, &input)?;
+    crate::sync_hook::record_json(&state, "tag", &tag.id, "update", &tag);
+    Ok(tag)
 }
 
 /// 删除标签。
 #[tauri::command]
 pub fn delete_tag(state: State<'_, AppState>, id: String) -> Result<(), AppError> {
-    state.tag_repo.delete(&id)
+    state.tag_repo.delete(&id)?;
+    crate::sync_hook::record_delete(&state, "tag", &id);
+    Ok(())
 }

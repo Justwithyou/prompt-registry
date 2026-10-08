@@ -101,3 +101,12 @@ pub struct BatchUpdateInput {
     pub set_project_id: Option<String>,
     pub delete: bool,
 }
+
+/// 某条提示词当前的组织关系（读取用，供编辑器回显分类 / 项目 / 标签）。
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct PromptRelations {
+    pub project_ids: Vec<String>,
+    pub tag_ids: Vec<String>,
+    pub category_id: Option<String>,
+}

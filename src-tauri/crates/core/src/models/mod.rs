@@ -11,8 +11,8 @@ pub use category::{Category, CreateCategoryInput, UpdateCategoryInput};
 pub use crypto::EncryptedPayload;
 pub use project::{CreateProjectInput, Project, UpdateProjectInput};
 pub use prompt::{
-    BatchUpdateInput, CreatePromptInput, Prompt, PromptQuery, PromptRelationsInput, PromptSortBy,
-    UpdatePromptInput,
+    BatchUpdateInput, CreatePromptInput, Prompt, PromptQuery, PromptRelations,
+    PromptRelationsInput, PromptSortBy, UpdatePromptInput,
 };
 pub use sync::{SyncConfig, SyncLogEntry, SyncResult, SyncStatus};
 pub use tag::{CreateTagInput, Tag, UpdateTagInput};

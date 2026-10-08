@@ -1,11 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate, useParams } from "react-router";
 import { usePromptStore } from "../../prompt-library/index";
+import { useCategoryStore } from "../../catalog/index";
+import { useTagStore } from "../../tag-management/index";
+import { useProjectStore } from "../../project-management/index";
+import type { PromptRelations } from "../../../entities/prompt/types";
 import { CopyButton } from "../../search/index";
 import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
 import { renderMarkdown } from "../lib/markdown";
-import { MetadataPanel } from "./MetadataPanel";
+import { buildCategoryTree, type CategoryNode } from "../../../shared/lib/organization";
+import { MetadataPanel, type CategoryOption } from "./MetadataPanel";
+import { ExportDialog } from "../../import-export/index";
 import { Icon } from "../../../shared/ui/Icon";
 
 interface Draft {
@@ -16,6 +22,16 @@ interface Draft {
   isPinned: boolean;
   isFavorite: boolean;
   rating: number;
+}
+
+/** 把分类树拍平成带缩进的选项列表（供分类下拉）。 */
+function flattenCategories(nodes: CategoryNode[], depth: number): CategoryOption[] {
+  let out: CategoryOption[] = [];
+  for (const n of nodes) {
+    out.push({ id: n.id, label: "\u00A0\u00A0".repeat(depth) + n.name });
+    out = out.concat(flattenCategories(n.children, depth + 1));
+  }
+  return out;
 }
 
 /**
@@ -43,8 +59,41 @@ export function PromptEditorPage({
   const fetchPrompts = usePromptStore((s) => s.fetchPrompts);
   const updatePrompt = usePromptStore((s) => s.updatePrompt);
   const deletePrompt = usePromptStore((s) => s.deletePrompt);
+  const setPromptRelations = usePromptStore((s) => s.setPromptRelations);
+  const getPromptRelations = usePromptStore((s) => s.getPromptRelations);
+  const categories = useCategoryStore((s) => s.categories);
+  const tags = useTagStore((s) => s.tags);
+  const projects = useProjectStore((s) => s.projects);
 
   const source = id ? prompts.find((p) => p.id === id) : undefined;
+
+  const categoryOptions = useMemo(
+    () => flattenCategories(buildCategoryTree(categories), 0),
+    [categories],
+  );
+
+  // 组织关系（分类 / 项目 / 标签）：打开编辑器时回显，修改后乐观更新。
+  const [relations, setRelations] = useState<{
+    projectIds: string[];
+    tagIds: string[];
+    categoryId: string;
+  }>({ projectIds: [], tagIds: [], categoryId: "" });
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    void getPromptRelations(id).then((r: PromptRelations) => {
+      if (cancelled) return;
+      setRelations({
+        projectIds: r.projectIds,
+        tagIds: r.tagIds,
+        categoryId: r.categoryId ?? "",
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [id, getPromptRelations]);
 
   // 冷启动时拉取列表；列表就绪后 source 自动变为可用
   useEffect(() => {
@@ -88,6 +137,7 @@ export function PromptEditorPage({
   const [activePanel, setActivePanel] = useState<
     "template" | "version" | null
   >(null);
+  const [showExport, setShowExport] = useState(false);
 
   const autosave = useDebouncedCallback((snapshot: Draft) => {
     if (!id) return;
@@ -136,6 +186,28 @@ export function PromptEditorPage({
     if (id) void deletePrompt(id).then(() => navigate("/prompts"));
   }
 
+  const projectId = relations.projectIds[0] ?? "";
+
+  function handleCategoryChange(categoryId: string) {
+    setRelations((r) => ({ ...r, categoryId }));
+    if (id) void setPromptRelations(id, { categoryId });
+  }
+
+  function handleProjectChange(nextProjectId: string) {
+    const projectIds = nextProjectId ? [nextProjectId] : [];
+    setRelations((r) => ({ ...r, projectIds }));
+    if (id) void setPromptRelations(id, { projectIds });
+  }
+
+  function handleToggleTag(tagId: string) {
+    const has = relations.tagIds.includes(tagId);
+    const tagIds = has
+      ? relations.tagIds.filter((t) => t !== tagId)
+      : [...relations.tagIds, tagId];
+    setRelations((r) => ({ ...r, tagIds }));
+    if (id) void setPromptRelations(id, { tagIds });
+  }
+
   return (
     <div className="editor-page">
       <header className="editor-header">
@@ -169,6 +241,14 @@ export function PromptEditorPage({
           >
             <Icon name="history" size={16} />
             版本
+          </button>
+          <button
+            type="button"
+            className="btn-ghost"
+            onClick={() => setShowExport(true)}
+          >
+            <Icon name="download" size={16} />
+            导出
           </button>
           <CopyButton text={d.content} />
           <button
@@ -204,12 +284,19 @@ export function PromptEditorPage({
 
         <aside className="editor-meta">
           <MetadataPanel
-            category={d.category}
+            categoryId={relations.categoryId}
+            categoryOptions={categoryOptions}
+            onCategoryChange={handleCategoryChange}
+            projectId={projectId}
+            projects={projects}
+            onProjectChange={handleProjectChange}
+            tags={tags}
+            selectedTagIds={relations.tagIds}
+            onToggleTag={handleToggleTag}
             description={d.description}
             isPinned={d.isPinned}
             isFavorite={d.isFavorite}
             rating={d.rating}
-            onCategoryChange={(v) => patchText({ category: v })}
             onDescriptionChange={(v) => patchText({ description: v })}
             onPinnedChange={(v) => patchMeta({ isPinned: v })}
             onFavoriteChange={(v) => patchMeta({ isFavorite: v })}
@@ -235,6 +322,15 @@ export function PromptEditorPage({
             {activePanel === "template" ? templatePanel : versionPanel}
           </div>
         </div>
+      )}
+
+      {showExport && (
+        <ExportDialog
+          title="导出提示词"
+          ids={id ? [id] : []}
+          content={d.content}
+          onClose={() => setShowExport(false)}
+        />
       )}
     </div>
   );

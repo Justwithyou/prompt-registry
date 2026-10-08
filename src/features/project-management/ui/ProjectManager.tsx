@@ -3,6 +3,7 @@ import type { Project } from "../../../entities/project/types";
 import { useProjectStore } from "../stores/projectStore";
 import { getPrompts } from "../../../shared/api/commands";
 import { Icon } from "../../../shared/ui/Icon";
+import { ExportDialog } from "../../import-export/index";
 
 /**
  * 项目管理器（D2 / project-management/ui）。
@@ -20,6 +21,7 @@ export function ProjectManager() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [color, setColor] = useState("#2f6fed");
+  const [showExport, setShowExport] = useState(false);
 
   const [counts, setCounts] = useState<Record<string, number>>({});
 
@@ -86,6 +88,14 @@ export function ProjectManager() {
             <span className="page-subtitle">共 {projects.length} 个项目</span>
           </div>
         </div>
+        <button
+          type="button"
+          className="btn-ghost"
+          onClick={() => setShowExport(true)}
+        >
+          <Icon name="download" size={16} />
+          批量导出
+        </button>
         <button
           type="button"
           className="btn-primary"
@@ -169,6 +179,15 @@ export function ProjectManager() {
           ))
         )}
       </div>
+
+      {showExport && (
+        <ExportDialog
+          title="按项目批量导出"
+          dimension="project"
+          options={projects.map((p) => ({ id: p.id, name: p.name }))}
+          onClose={() => setShowExport(false)}
+        />
+      )}
     </div>
   );
 }

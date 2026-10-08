@@ -11,8 +11,9 @@ pub mod traits;
 pub use errors::AppError;
 pub use models::{
     BatchUpdateInput, Category, CreateCategoryInput, CreateProjectInput, CreatePromptInput,
-    CreateTagInput, EncryptedPayload, Project, Prompt, PromptQuery, PromptRelationsInput,
-    PromptSortBy, PromptVersion, SyncConfig, SyncLogEntry, SyncResult, SyncStatus, Tag,
+    CreateTagInput, EncryptedPayload, Project, Prompt, PromptQuery, PromptRelations,
+    PromptRelationsInput, PromptSortBy, PromptVersion, SyncConfig, SyncLogEntry, SyncResult,
+    SyncStatus, Tag,
     UpdateCategoryInput, UpdateProjectInput, UpdatePromptInput, UpdateTagInput, VariableDefinition,
 };
 pub use traits::{

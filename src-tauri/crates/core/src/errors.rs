@@ -18,6 +18,9 @@ pub enum AppError {
     #[error("模板错误: {0}")]
     Template(String),
 
+    #[error("IO 错误: {0}")]
+    Io(String),
+
     #[error("未找到: {0}")]
     NotFound(String),
 

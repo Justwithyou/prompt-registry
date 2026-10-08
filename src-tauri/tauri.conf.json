@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "个人提示词管理平台",
+        "title": "提示词管理平台",
         "width": 1280,
         "height": 800,
         "resizable": true,

@@ -5,6 +5,7 @@ import type {
   CreatePromptInput,
   UpdatePromptInput,
   PromptRelationsInput,
+  PromptRelations,
   BatchUpdateInput,
 } from "../../../entities/prompt/types";
 import * as promptApi from "../api";
@@ -33,6 +34,7 @@ export interface PromptStore {
     id: string,
     relations: PromptRelationsInput,
   ) => Promise<void>;
+  getPromptRelations: (id: string) => Promise<PromptRelations>;
   batchUpdatePrompts: (
     ids: string[],
     batch: BatchUpdateInput,
@@ -109,6 +111,11 @@ export const usePromptStore = create<PromptStore>()((set, get) => ({
     set((state) => ({
       prompts: state.prompts.map((p) => (p.id === id ? updated : p)),
     }));
+  },
+
+  // 读取某条提示词当前的组织关系（供编辑器回显分类/项目/标签）。
+  async getPromptRelations(id) {
+    return promptApi.getPromptRelations(id);
   },
 
   // 批量打标签 / 移动项目 / 删除，完成后统一重拉以与后端保持一致（M2-C2）。

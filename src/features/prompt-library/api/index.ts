@@ -10,5 +10,6 @@ export {
   deletePrompt,
   searchPrompts,
   setPromptRelations,
+  getPromptRelations,
   batchUpdatePrompts,
 } from "../../../shared/api/commands";

@@ -1,0 +1,17 @@
+[package]
+name = "prompt-cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "prompt-cli"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+# crate 名 "core" 与标准库 core 冲突，引用处使用别名 prompt_core（package 仍名为 core）
+prompt_core = { package = "core", path = "../core" }
+storage = { path = "../storage" }
+template = { path = "../template" }
+export = { path = "../export" }
+serde_json = "1"

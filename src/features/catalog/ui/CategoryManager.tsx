@@ -5,6 +5,7 @@ import {
   type CategoryNode,
 } from "../../../shared/lib/organization";
 import { Icon } from "../../../shared/ui/Icon";
+import { ExportDialog } from "../../import-export/index";
 
 /**
  * 分类管理器（D1 / catalog/ui）。
@@ -25,6 +26,7 @@ export function CategoryManager() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [overId, setOverId] = useState<string | null>(null);
+  const [showExport, setShowExport] = useState(false);
   const draggedRef = useRef<string | null>(null);
 
   function toggleExpand(id: string) {
@@ -70,15 +72,6 @@ export function CategoryManager() {
         <div
           className={`cat-node${isOver ? " is-over" : ""}`}
           style={{ paddingLeft: depth * 20 }}
-          draggable
-          onDragStart={(e) => {
-            draggedRef.current = node.id;
-            e.dataTransfer.effectAllowed = "move";
-          }}
-          onDragEnd={() => {
-            draggedRef.current = null;
-            setOverId(null);
-          }}
           onDragOver={(e) => {
             e.preventDefault();
             e.dataTransfer.dropEffect = "move";
@@ -92,7 +85,20 @@ export function CategoryManager() {
             handleDrop(node);
           }}
         >
-          <span className="cat-node-drag" title="拖拽排序">
+          <span
+            className="cat-node-drag"
+            title="拖拽排序"
+            draggable
+            onDragStart={(e) => {
+              draggedRef.current = node.id;
+              e.dataTransfer.effectAllowed = "move";
+              e.dataTransfer.setData("text/plain", node.id);
+            }}
+            onDragEnd={() => {
+              draggedRef.current = null;
+              setOverId(null);
+            }}
+          >
             <Icon name="menu" size={14} />
           </span>
           <button
@@ -167,6 +173,14 @@ export function CategoryManager() {
             <span className="page-subtitle">共 {categories.length} 个分类</span>
           </div>
         </div>
+        <button
+          type="button"
+          className="btn-ghost"
+          onClick={() => setShowExport(true)}
+        >
+          <Icon name="download" size={16} />
+          批量导出
+        </button>
         <button type="button" className="btn-primary" onClick={() => handleAdd(null)}>
           <Icon name="plus" size={16} />
           新建分类
@@ -181,6 +195,15 @@ export function CategoryManager() {
         )}
       </div>
       <p className="manager-hint">提示：拖拽分类到另一分类上可调整层级与顺序。</p>
+
+      {showExport && (
+        <ExportDialog
+          title="按分类批量导出"
+          dimension="category"
+          options={categories.map((c) => ({ id: c.id, name: c.name }))}
+          onClose={() => setShowExport(false)}
+        />
+      )}
     </div>
   );
 }

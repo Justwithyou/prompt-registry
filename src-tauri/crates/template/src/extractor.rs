@@ -5,7 +5,9 @@ use prompt_core::VariableDefinition;
 use regex::Regex;
 
 /// 返回编译好的模板变量正则（`\{\{(\w+)\}\}`），进程内仅编译一次。
-fn variable_regex() -> &'static Regex {
+///
+/// `pub(crate)` 供 `render` 复用同一正则，避免重复编译。
+pub(crate) fn variable_regex() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
     RE.get_or_init(|| Regex::new(r"\{\{(\w+)\}\}").expect("模板变量正则为常量，必然合法"))
 }

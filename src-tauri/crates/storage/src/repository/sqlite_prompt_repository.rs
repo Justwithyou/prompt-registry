@@ -2,8 +2,8 @@ use std::path::Path;
 use std::sync::MutexGuard;
 
 use prompt_core::{
-    AppError, BatchUpdateInput, CreatePromptInput, Prompt, PromptQuery, PromptRelationsInput,
-    PromptRepository, PromptSortBy, UpdatePromptInput,
+    AppError, BatchUpdateInput, CreatePromptInput, Prompt, PromptQuery, PromptRelations,
+    PromptRelationsInput, PromptRepository, PromptSortBy, UpdatePromptInput,
 };
 use rusqlite::{params_from_iter, OptionalExtension, Row, Transaction};
 use uuid::Uuid;
@@ -397,6 +397,44 @@ impl PromptRepository for SqlitePromptRepository {
         tx.commit().map_err(db_err)?;
 
         Ok(prompt)
+    }
+
+    /// 读完项目/标签关联后，返回提示词组织关系（确保实体存在，否则 NotFound）。
+    fn get_relations(&self, id: &str) -> Result<PromptRelations, AppError> {
+        let conn = self.lock()?;
+        let inner = conn.inner();
+
+        let category_id: Option<String> = inner
+            .query_row(
+                "SELECT category_id FROM prompts WHERE id = ?1 AND deleted_at IS NULL",
+                [id],
+                |row| row.get(0),
+            )
+            .optional()
+            .map_err(db_err)?
+            .ok_or_else(|| AppError::NotFound(id.to_string()))?;
+
+        let project_ids: Vec<String> = {
+            let mut stmt = inner
+                .prepare("SELECT project_id FROM prompt_projects WHERE prompt_id = ?1")
+                .map_err(db_err)?;
+            let rows = stmt.query_map([id], |row| row.get(0)).map_err(db_err)?;
+            rows.map(|r| r.map_err(db_err)).collect::<Result<Vec<_>, _>>()?
+        };
+
+        let tag_ids: Vec<String> = {
+            let mut stmt = inner
+                .prepare("SELECT tag_id FROM prompt_tags WHERE prompt_id = ?1")
+                .map_err(db_err)?;
+            let rows = stmt.query_map([id], |row| row.get(0)).map_err(db_err)?;
+            rows.map(|r| r.map_err(db_err)).collect::<Result<Vec<_>, _>>()?
+        };
+
+        Ok(PromptRelations {
+            project_ids,
+            tag_ids,
+            category_id,
+        })
     }
 
     fn batch_update(&self, ids: &[String], batch: &BatchUpdateInput) -> Result<(), AppError> {

@@ -7,13 +7,24 @@
   --accent: #6ea8fe;
   --radius: 12px;
 
-  font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui,
+  --font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui,
     -apple-system, sans-serif;
+
+  font-family: var(--font-family);
   -webkit-font-smoothing: antialiased;
 }
 
 * {
   box-sizing: border-box;
+}
+
+/* 让表单控件（输入/下拉/按钮/文本域）也继承全局字体，
+   否则它们默认使用系统字体，无法跟随设置中的字体切换。 */
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
 }
 
 html,

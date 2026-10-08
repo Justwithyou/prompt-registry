@@ -8,8 +8,10 @@
 use prompt_core::{TemplateExtractor, VariableDefinition};
 
 pub mod extractor;
+pub mod render;
 
 pub use extractor::extract_variables;
+pub use render::render;
 
 /// 基于正则的模板变量提取器（满足 core `TemplateExtractor` trait）。
 ///

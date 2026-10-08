@@ -1,6 +1,6 @@
 use prompt_core::{
-    AppError, BatchUpdateInput, CreatePromptInput, Prompt, PromptQuery, PromptRelationsInput,
-    UpdatePromptInput,
+    AppError, BatchUpdateInput, CreatePromptInput, Prompt, PromptQuery, PromptRelations,
+    PromptRelationsInput, UpdatePromptInput,
 };
 use tauri::State;
 
@@ -69,6 +69,15 @@ pub fn set_prompt_relations(
     let prompt = state.prompt_repo.set_relations(&id, &relations)?;
     crate::sync_hook::record_json(&state, "prompt", &prompt.id, "update", &prompt);
     Ok(prompt)
+}
+
+/// 读取某条提示词当前的组织关系（供编辑器回显分类 / 项目 / 标签）。
+#[tauri::command]
+pub fn get_prompt_relations(
+    state: State<'_, AppState>,
+    id: String,
+) -> Result<PromptRelations, AppError> {
+    state.prompt_repo.get_relations(&id)
 }
 
 /// 批量操作（批量打标签 / 移动项目 / 删除）。

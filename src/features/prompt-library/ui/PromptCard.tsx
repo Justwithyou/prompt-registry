@@ -2,6 +2,7 @@ import type { MouseEvent } from "react";
 import { useNavigate } from "react-router";
 import type { Prompt } from "../../../entities/prompt/types";
 import { usePromptStore } from "../stores/promptStore";
+import { useCategoryStore } from "../../catalog/index";
 import { Icon } from "../../../shared/ui/Icon";
 
 /** 截取纯文本摘要（去除常见 Markdown 标记）。 */
@@ -34,9 +35,14 @@ export function PromptCard({ prompt }: { prompt: Prompt }) {
   const selectedIds = usePromptStore((s) => s.selectedIds);
   const toggleSelected = usePromptStore((s) => s.toggleSelected);
   const setPromptRelations = usePromptStore((s) => s.setPromptRelations);
+  const categories = useCategoryStore((s) => s.categories);
 
   const rating = Math.max(0, Math.min(5, prompt.rating));
   const selected = selectedIds.includes(prompt.id);
+  // 优先按树形分类（categoryId）解析展示名，向下兼容 legacy 字符串分类。
+  const categoryName = prompt.categoryId
+    ? categories.find((c) => c.id === prompt.categoryId)?.name ?? prompt.category
+    : prompt.category;
 
   function open() {
     navigate(`/prompts/${prompt.id}`);
@@ -44,14 +50,6 @@ export function PromptCard({ prompt }: { prompt: Prompt }) {
 
   function stop(e: MouseEvent) {
     e.stopPropagation();
-  }
-
-  function toggleFavorite() {
-    void setPromptRelations(prompt.id, { isFavorite: !prompt.isFavorite });
-  }
-
-  function togglePinned() {
-    void setPromptRelations(prompt.id, { isPinned: !prompt.isPinned });
   }
 
   function handleRatingStar(e: MouseEvent, value: number) {
@@ -84,8 +82,8 @@ export function PromptCard({ prompt }: { prompt: Prompt }) {
       </div>
 
       <div className="prompt-card-meta">
-        {prompt.category && (
-          <span className="prompt-card-category">{prompt.category}</span>
+        {categoryName && (
+          <span className="prompt-card-category">{categoryName}</span>
         )}
         <span className="prompt-card-rating" title={`评分 ${prompt.rating} / 5`}>
           {rating > 0 ? "★".repeat(rating) : "未评分"}
@@ -99,22 +97,6 @@ export function PromptCard({ prompt }: { prompt: Prompt }) {
       <div className="prompt-card-footer" onClick={stop}>
         <span className="prompt-card-time">{formatTime(prompt.updatedAt)}</span>
         <div className="prompt-card-actions">
-          <button
-            type="button"
-            className={`quick-btn${prompt.isFavorite ? " is-active-fav" : ""}`}
-            title={prompt.isFavorite ? "取消收藏" : "收藏"}
-            onClick={toggleFavorite}
-          >
-            <Icon name={prompt.isFavorite ? "star-filled" : "star"} size={14} />
-          </button>
-          <button
-            type="button"
-            className={`quick-btn${prompt.isPinned ? " is-active-pin" : ""}`}
-            title={prompt.isPinned ? "取消置顶" : "置顶"}
-            onClick={togglePinned}
-          >
-            <Icon name="pin" size={14} />
-          </button>
           <span className="quick-rating" title="点击星星评分">
             {[1, 2, 3, 4, 5].map((n) => (
               <button

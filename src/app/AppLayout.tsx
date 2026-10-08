@@ -7,6 +7,7 @@ import { useProjectStore } from "../features/project-management/index";
 import { useCategoryStore } from "../features/catalog/index";
 import { useTagStore } from "../features/tag-management/index";
 import { Icon } from "../shared/ui/Icon";
+import { loadImportedFont, resolveFontFamily } from "../shared/lib/fonts";
 
 /**
  * 应用外壳布局（app 层）。
@@ -20,6 +21,7 @@ export function AppLayout() {
   const theme = useSettingsStore((s) => s.theme);
   const sidebarCollapsed = useSettingsStore((s) => s.sidebarCollapsed);
   const toggleSidebar = useSettingsStore((s) => s.toggleSidebar);
+  const fontKey = useSettingsStore((s) => s.fontKey);
   const projects = useProjectStore((s) => s.projects);
   const filters = usePromptStore((s) => s.filters);
   const setFilters = usePromptStore((s) => s.setFilters);
@@ -32,6 +34,17 @@ export function AppLayout() {
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
   }, [theme]);
+
+  useEffect(() => {
+    document.documentElement.style.setProperty(
+      "--font-family",
+      resolveFontFamily(fontKey),
+    );
+  }, [fontKey]);
+
+  useEffect(() => {
+    void loadImportedFont();
+  }, []);
 
   useEffect(() => {
     void fetchPrompts();
@@ -59,12 +72,6 @@ export function AppLayout() {
   return (
     <div className="app-shell">
       <aside className={`app-sidebar${sidebarCollapsed ? " is-collapsed" : ""}`}>
-        <div className="app-brand">
-          <img src="/logo.svg" className="app-brand-logo" alt="提示词管理" />
-          {!sidebarCollapsed && (
-            <span className="app-brand-name">提示词管理</span>
-          )}
-        </div>
         <nav className="app-nav">
           {navItems.map((item) => (
             <NavLink
@@ -97,7 +104,12 @@ export function AppLayout() {
                     className="project-swatch"
                     style={{ background: p.color ?? "var(--accent)" }}
                   />
-                  <span className="nav-label">{p.name}</span>
+                  <span
+                    className="nav-label"
+                    style={p.color ? { color: p.color } : undefined}
+                  >
+                    {p.name}
+                  </span>
                 </button>
               );
             })}
@@ -114,7 +126,6 @@ export function AppLayout() {
             name={sidebarCollapsed ? "panel-left-open" : "panel-left-close"}
             size={18}
           />
-          {!sidebarCollapsed && <span className="nav-label">收起</span>}
         </button>
       </aside>
 

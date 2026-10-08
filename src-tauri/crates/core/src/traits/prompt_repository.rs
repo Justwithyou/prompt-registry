@@ -1,7 +1,7 @@
 use crate::errors::AppError;
 use crate::models::{
-    BatchUpdateInput, CreatePromptInput, Prompt, PromptQuery, PromptRelationsInput,
-    UpdatePromptInput,
+    BatchUpdateInput, CreatePromptInput, Prompt, PromptQuery, PromptRelations,
+    PromptRelationsInput, UpdatePromptInput,
 };
 
 /// 提示词仓库抽象（对应架构方案 4.4）。
@@ -18,6 +18,8 @@ pub trait PromptRepository: Send + Sync {
     fn search(&self, keyword: &str) -> Result<Vec<Prompt>, AppError>;
     /// 一次性更新某条提示词的组织关系（项目 / 标签 / 分类）与快捷标记。
     fn set_relations(&self, id: &str, input: &PromptRelationsInput) -> Result<Prompt, AppError>;
+    /// 读取某条提示词当前的组织关系（项目 / 标签 / 分类），供编辑器回显。
+    fn get_relations(&self, id: &str) -> Result<PromptRelations, AppError>;
     /// 批量打标签 / 移动项目 / 删除。
     fn batch_update(&self, ids: &[String], batch: &BatchUpdateInput) -> Result<(), AppError>;
 }

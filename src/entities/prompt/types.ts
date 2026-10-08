@@ -12,5 +12,6 @@ export type {
   CreatePromptInput,
   UpdatePromptInput,
   PromptRelationsInput,
+  PromptRelations,
   BatchUpdateInput,
 } from "../../shared/api/commands";

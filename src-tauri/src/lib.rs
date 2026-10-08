@@ -87,6 +87,7 @@ pub fn run() {
             ipc::commands::prompt::delete_prompt,
             ipc::commands::prompt::search_prompts,
             ipc::commands::prompt::set_prompt_relations,
+            ipc::commands::prompt::get_prompt_relations,
             ipc::commands::prompt::batch_update_prompts,
             ipc::commands::category::list_categories,
             ipc::commands::category::create_category,
@@ -112,6 +113,9 @@ pub fn run() {
             ipc::commands::sync::configure_sync,
             ipc::commands::sync::sync_now,
             ipc::commands::sync::get_sync_status,
+            ipc::commands::export::render_prompt,
+            ipc::commands::export::export_prompts,
+            ipc::commands::export::export_skill,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

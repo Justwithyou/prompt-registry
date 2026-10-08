@@ -3,6 +3,7 @@ import type { Tag } from "../../../entities/tag/types";
 import { useTagStore } from "../stores/tagStore";
 import { tagDisplayName } from "../../../shared/lib/organization";
 import { Icon } from "../../../shared/ui/Icon";
+import { ExportDialog } from "../../import-export/index";
 import { TagCloud } from "./TagCloud";
 
 /**
@@ -26,6 +27,7 @@ export function TagManager() {
   const [name, setName] = useState("");
   const [parentId, setParentId] = useState<string>("");
   const [color, setColor] = useState<string>(PALETTE[0]);
+  const [showExport, setShowExport] = useState(false);
 
   const sorted = useMemo(
     () => [...tags].sort((a, b) => tagDisplayName(tags, a).localeCompare(tagDisplayName(tags, b), "zh")),
@@ -95,6 +97,14 @@ export function TagManager() {
             <span>标签云</span>
           </button>
         </nav>
+        <button
+          type="button"
+          className="btn-ghost"
+          onClick={() => setShowExport(true)}
+        >
+          <Icon name="download" size={16} />
+          批量导出
+        </button>
         <button
           type="button"
           className="btn-primary"
@@ -180,6 +190,15 @@ export function TagManager() {
             ))
           )}
         </div>
+      )}
+
+      {showExport && (
+        <ExportDialog
+          title="按标签批量导出"
+          dimension="tag"
+          options={tags.map((t) => ({ id: t.id, name: tagDisplayName(tags, t) }))}
+          onClose={() => setShowExport(false)}
+        />
       )}
     </div>
   );

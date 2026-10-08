@@ -177,6 +177,13 @@ export interface PromptRelationsInput {
   rating?: number;
 }
 
+/** 某条提示词当前的组织关系（读取用） */
+export interface PromptRelations {
+  projectIds: string[];
+  tagIds: string[];
+  categoryId: string | null;
+}
+
 /** 批量操作入参 */
 export interface BatchUpdateInput {
   addTagIds?: string[];
@@ -261,6 +268,13 @@ export async function setPromptRelations(
   relations: PromptRelationsInput,
 ): Promise<Prompt> {
   return invoke<Prompt>("set_prompt_relations", { id, relations });
+}
+
+/** 读取某条提示词当前的组织关系（项目 / 标签 / 分类） */
+export async function getPromptRelations(
+  id: string,
+): Promise<PromptRelations> {
+  return invoke<PromptRelations>("get_prompt_relations", { id });
 }
 
 /** 批量操作提示词 */
@@ -399,5 +413,55 @@ export async function ping(): Promise<string> {
   return invoke<string>("ping");
 }
 
-// ===== 待接入命令契约（按里程碑逐步开放）=====
-// （M1～M4 命令已全部冻结；M5 打磨/打包与 P2 AI 辅助若新增命令，在此补充。）
+// ===== 导出命令（M6 CLI/Skills 输出能力，与 crates/export 及 ipc/commands/export 对齐）=====
+
+/** 导出格式：SKILL.md / Markdown / JSON。 */
+export type ExportFormat = "skill" | "markdown" | "json";
+
+/**
+ * 导出选择器入参（对应 Rust `ExportSelectorInput`）。
+ * 优先级：`ids` > `categoryId` > `projectId` > `tagIds` > 全部。
+ */
+export interface ExportSelectorInput {
+  /** 按提示词 ID 导出（单条/多条）。 */
+  ids?: string[];
+  /** 按分类导出。 */
+  categoryId?: string | null;
+  /** 按标签导出。 */
+  tagIds?: string[];
+  /** 按项目导出。 */
+  projectId?: string | null;
+}
+
+/** 渲染单条模板提示词为成品（变量未被填值时保留 `{{name}}` 占位）。 */
+export async function renderPrompt(
+  id: string,
+  vars: Record<string, string>,
+): Promise<string> {
+  return invoke<string>("render_prompt", { id, vars });
+}
+
+/** 按选择器导出提示词到目录，返回写入的文件路径列表。 */
+export async function exportPrompts(
+  selector: ExportSelectorInput,
+  format: ExportFormat,
+  outDir: string,
+  render: boolean,
+  vars?: Record<string, string>,
+): Promise<string[]> {
+  return invoke<string[]>("export_prompts", {
+    selector,
+    format,
+    outDir,
+    render,
+    vars: vars ?? {},
+  });
+}
+
+/** 单条导出为 SKILL.md 目录，返回 SKILL.md 文件路径。 */
+export async function exportSkill(
+  id: string,
+  outDir: string,
+): Promise<string> {
+  return invoke<string>("export_skill", { id, outDir });
+}

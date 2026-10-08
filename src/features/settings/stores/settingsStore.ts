@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { DEFAULT_FONT_KEY, IMPORTED_FONT_KEY } from "../../../shared/lib/fonts";
 
 /**
  * 设置切片状态（settings/stores）。
@@ -16,14 +17,20 @@ export interface SettingsStore {
   storageLocation: string;
   appVersion: string;
   sidebarCollapsed: boolean;
+  fontKey: string;
+  importedFontName: string | null;
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
   setStorageLocation: (path: string) => void;
   toggleSidebar: () => void;
+  setFontKey: (key: string) => void;
+  setImportedFont: (name: string) => void;
 }
 
 const THEME_KEY = "prompt-manager.theme";
 const SIDEBAR_KEY = "prompt-manager.sidebar-collapsed";
+const FONT_KEY = "prompt-manager.font-key";
+const IMPORTED_FONT_NAME_KEY = "prompt-manager.imported-font-name";
 
 function initialTheme(): Theme {
   const saved = localStorage.getItem(THEME_KEY);
@@ -34,11 +41,18 @@ function initialSidebarCollapsed(): boolean {
   return localStorage.getItem(SIDEBAR_KEY) === "1";
 }
 
+function initialFontKey(): string {
+  const saved = localStorage.getItem(FONT_KEY);
+  return saved ?? DEFAULT_FONT_KEY;
+}
+
 export const useSettingsStore = create<SettingsStore>()((set, get) => ({
   theme: initialTheme(),
   storageLocation: "C:\\Users\\<user>\\AppData\\Roaming\\prompt-manager\\vault.db",
   appVersion: "1.0.0",
   sidebarCollapsed: initialSidebarCollapsed(),
+  fontKey: initialFontKey(),
+  importedFontName: localStorage.getItem(IMPORTED_FONT_NAME_KEY),
 
   setTheme(theme) {
     set({ theme });
@@ -57,5 +71,16 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => ({
     const collapsed = !get().sidebarCollapsed;
     set({ sidebarCollapsed: collapsed });
     localStorage.setItem(SIDEBAR_KEY, collapsed ? "1" : "0");
+  },
+
+  setFontKey(key) {
+    set({ fontKey: key });
+    localStorage.setItem(FONT_KEY, key);
+  },
+
+  setImportedFont(name) {
+    set({ fontKey: IMPORTED_FONT_KEY, importedFontName: name });
+    localStorage.setItem(FONT_KEY, IMPORTED_FONT_KEY);
+    localStorage.setItem(IMPORTED_FONT_NAME_KEY, name);
   },
 }));

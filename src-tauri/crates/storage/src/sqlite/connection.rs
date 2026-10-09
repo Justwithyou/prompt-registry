@@ -130,12 +130,7 @@ mod migrations {
         )?;
 
         for &(version, sql) in MIGRATIONS {
-            let applied: i64 = conn.query_row(
-                "SELECT COUNT(*) FROM _migrations WHERE version = ?1",
-                [version],
-                |row| row.get(0),
-            )?;
-            if applied > 0 {
+            if is_applied(conn, version)? {
                 continue;
             }
 
@@ -145,6 +140,43 @@ mod migrations {
             tx.commit()?;
         }
 
+        // 0005：修复历史库——迁移 0002 被标记已应用时若 prompts 尚缺 category_id 列，
+        // 则条件补齐（幂等，新库已由 0002 建列，此步直接跳过）。
+        if !is_applied(conn, 5)? {
+            if !column_exists(conn, "prompts", "category_id")? {
+                let tx = conn.transaction()?;
+                tx.execute_batch(
+                    "ALTER TABLE prompts ADD COLUMN category_id TEXT REFERENCES categories(id);",
+                )?;
+                tx.commit()?;
+            }
+            conn.execute_batch(
+                "CREATE INDEX IF NOT EXISTS idx_prompts_category_id ON prompts(category_id);",
+            )?;
+            conn.execute("INSERT INTO _migrations (version) VALUES (5)", [])?;
+        }
+
         Ok(())
+    }
+
+    fn is_applied(conn: &Connection, version: i64) -> Result<bool> {
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM _migrations WHERE version = ?1",
+            [version],
+            |row| row.get(0),
+        )?;
+        Ok(count > 0)
+    }
+
+    fn column_exists(conn: &Connection, table: &str, column: &str) -> Result<bool> {
+        let mut stmt = conn.prepare(&format!("PRAGMA table_info({table})"))?;
+        let mut rows = stmt.query([])?;
+        while let Some(row) = rows.next()? {
+            let name: String = row.get(1)?;
+            if name == column {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 }

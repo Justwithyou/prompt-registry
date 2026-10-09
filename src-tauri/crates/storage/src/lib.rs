@@ -8,6 +8,7 @@ mod util;
 
 pub mod repository;
 pub mod sqlite;
+pub mod transfer;
 
 pub use repository::{
     SqliteCategoryRepository, SqliteProjectRepository, SqlitePromptRepository, SqliteSyncLogStore,

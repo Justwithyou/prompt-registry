@@ -48,7 +48,7 @@ function initialFontKey(): string {
 
 export const useSettingsStore = create<SettingsStore>()((set, get) => ({
   theme: initialTheme(),
-  storageLocation: "C:\\Users\\<user>\\AppData\\Roaming\\prompt-manager\\vault.db",
+  storageLocation: "",
   appVersion: "1.0.0",
   sidebarCollapsed: initialSidebarCollapsed(),
   fontKey: initialFontKey(),

@@ -60,4 +60,28 @@ impl Db {
             .lock()
             .map_err(|_| AppError::Database("repository 连接锁已中毒".to_string()))
     }
+
+    /// 将当前库的一致性快照导出到目标文件（`VACUUM INTO`），用于迁移存储位置。
+    ///
+    /// 目标文件不得已存在（SQLite 约束），由调用方在迁移前校验。
+    pub fn vacuum_into(&self, target: &Path) -> Result<(), AppError> {
+        let conn = self.lock()?;
+        let sql = format!(
+            "VACUUM INTO '{}'",
+            target.display().to_string().replace('\'', "''")
+        );
+        conn.inner().execute_batch(&sql).map_err(db_err)
+    }
+
+    /// 关闭当前连接并在 `path` 重开（含幂等迁移），用于运行时切换存储位置。
+    ///
+    /// 共享连接的多个 Repository 因持有同一个 `Arc<Mutex<Connection>>`，
+    /// 重开后即全体指向新库，无需重建仓库实例。
+    pub fn reopen(&self, path: &Path) -> Result<(), AppError> {
+        let mut conn = self.lock()?;
+        let mut next = Connection::open(path).map_err(db_err)?;
+        next.migrate().map_err(db_err)?;
+        *conn = next;
+        Ok(())
+    }
 }

@@ -1,18 +1,24 @@
 import { create } from "zustand";
-import * as nunjucks from "nunjucks";
 import type { VariableDefinition } from "../../../entities/template/types";
 import * as templateApi from "../api";
 
-/** 关闭 HTML 自动转义与未定义变量报错：模板渲染的是纯文本/Markdown 预览。 */
-const renderEnv = nunjucks.configure({
-  autoescape: false,
-  throwOnUndefined: false,
-});
+/** 与后端 `template::render` 保持一致的变量占位正则（`{{name}}`，`[^{}\s]+`）。 */
+const VAR_RE = /\{\{([^{}\s]+)\}\}/g;
+
+/**
+ * 渲染模板：把正文中的 `{{name}}` 回填为 `values` 中同名值；未覆盖的变量保留原占位。
+ * 采用与后端一致的正则替换，而非模板引擎，规避 `{{...}}` 被误解析（中文名/多变量/特殊字符）。
+ */
+function renderTemplate(template: string, values: Record<string, string>): string {
+  return template.replace(VAR_RE, (whole, name: string) =>
+    Object.prototype.hasOwnProperty.call(values, name) ? values[name] : whole,
+  );
+}
 
 /**
  * 模板状态（Zustand store），对应架构方案 3.2 的 templateStore。
  * 职责：变量定义、变量值、预览结果（M3-C2）。
- * 渲染使用前端 Nunjucks（M3 决策点 3.1：渲染在后端之外的「前端 Nunjucks」）。
+ * 渲染与后端复用同一 `{{name}}` 正则契约，避免引入额外模板语义。
  */
 export interface TemplateStore {
   /** `extract_variables` 提取出的变量定义。 */
@@ -60,7 +66,7 @@ export const useTemplateStore = create<TemplateStore>()((set, get) => ({
   },
 
   renderPreview(template) {
-    set({ preview: renderEnv.renderString(template, get().values) });
+    set({ preview: renderTemplate(template, get().values) });
   },
 
   clear() {

@@ -25,6 +25,8 @@ export function CategoryManager() {
   );
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [newParentId, setNewParentId] = useState<string | null>(null);
+  const [newName, setNewName] = useState("");
   const [overId, setOverId] = useState<string | null>(null);
   const [showExport, setShowExport] = useState(false);
   const draggedRef = useRef<string | null>(null);
@@ -49,10 +51,48 @@ export function CategoryManager() {
     setEditingId(null);
   }
 
-  async function handleAdd(parentId: string | null) {
-    const created = await createCategory({ name: "未命名分类", parentId });
+  function handleAdd(parentId: string | null) {
+    setNewParentId(parentId);
+    setNewName("");
     if (parentId) setExpanded((prev) => new Set(prev).add(parentId));
-    startEdit(created.id, created.name);
+  }
+
+  async function commitNew() {
+    const name = newName.trim();
+    if (name && newParentId !== null) {
+      await createCategory({ name, parentId: newParentId });
+    }
+    setNewParentId(null);
+    setNewName("");
+  }
+
+  function cancelNew() {
+    setNewParentId(null);
+    setNewName("");
+  }
+
+  function renderNewNode(depth: number) {
+    return (
+      <div className="cat-node" style={{ paddingLeft: depth * 20 }}>
+        <span className="cat-node-drag" style={{ visibility: "hidden" }} />
+        <button type="button" className="cat-node-toggle" disabled tabIndex={-1}>
+          <span className="cat-node-spacer" />
+        </button>
+        <Icon name="folder" size={15} className="cat-node-icon" />
+        <input
+          className="cat-node-input"
+          value={newName}
+          autoFocus
+          placeholder="输入分类名称"
+          onChange={(e) => setNewName(e.target.value)}
+          onBlur={commitNew}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commitNew();
+            if (e.key === "Escape") cancelNew();
+          }}
+        />
+      </div>
+    );
   }
 
   function handleDrop(target: CategoryNode) {
@@ -156,6 +196,7 @@ export function CategoryManager() {
             </button>
           </span>
         </div>
+        {newParentId === node.id && renderNewNode(depth + 1)}
         {isOpen && hasChildren && node.children.map((c) => renderNode(c, depth + 1))}
       </div>
     );
@@ -188,8 +229,11 @@ export function CategoryManager() {
       </header>
 
       <div className="tree-container">
+        {newParentId === null && renderNewNode(0)}
         {tree.length === 0 ? (
-          <div className="manager-empty">暂无分类，点击「新建分类」开始。</div>
+          newParentId !== null ? null : (
+            <div className="manager-empty">暂无分类，点击「新建分类」开始。</div>
+          )
         ) : (
           tree.map((n) => renderNode(n, 0))
         )}

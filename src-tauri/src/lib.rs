@@ -15,6 +15,11 @@ use storage::{
 use sync::Engine;
 use template::RegexTemplateExtractor;
 
+mod ai_commands;
+mod ai_config;
+mod data_transfer;
+mod storage_location;
+
 /// 同步能力三元组（变更日志 / 配置仓库 / 引擎），供 `assemble_sync` 返回值复用。
 type SyncAssembly = (
     Arc<dyn SyncLogStore>,
@@ -42,14 +47,18 @@ fn assemble_sync(db: &Db) -> Result<SyncAssembly, prompt_core::AppError> {
 /// M3 起扩展版本仓库（同一 `Db`）与模板变量提取器。
 /// 构造后统一注入 `AppState`，注册 ping + 提示词七命令 + 组织层十四命令 + 模板版本四命令。
 /// 加密 / 密钥派生归 M4，本阶段不引入 SQLCipher。
-pub fn run() {
+pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let data_dir = app.path().app_data_dir()?;
+            let base_dir = app.path().app_data_dir()?;
+            let data_dir = storage_location::load_dir(&base_dir);
             std::fs::create_dir_all(&data_dir)?;
             let db_path = data_dir.join("prompt.db");
 
             let db = Db::open(&db_path)?;
+            // 让存储位置命令通过 State<Db> 取到同一共享连接，实现运行时热切换。
+            app.manage(db.clone());
             let prompt_repo: Arc<dyn PromptRepository> =
                 Arc::new(SqlitePromptRepository::new(db.clone()));
             let project_repo: Arc<dyn ProjectRepository> =
@@ -116,9 +125,17 @@ pub fn run() {
             ipc::commands::export::render_prompt,
             ipc::commands::export::export_prompts,
             ipc::commands::export::export_skill,
+            storage_location::get_storage_location,
+            storage_location::set_storage_location,
+            data_transfer::export_data,
+            data_transfer::import_data,
+            ai_config::get_ai_config,
+            ai_config::set_ai_config,
+            ai_commands::set_ai_api_key,
+            ai_commands::ai_generate_prompt,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .map_err(Into::into)
 }
 
 #[cfg(test)]

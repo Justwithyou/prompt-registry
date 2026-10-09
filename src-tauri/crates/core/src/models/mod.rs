@@ -1,3 +1,4 @@
+pub mod ai;
 pub mod category;
 pub mod crypto;
 pub mod project;
@@ -7,6 +8,7 @@ pub mod tag;
 pub mod template;
 pub mod version;
 
+pub use ai::{AiConfig, PromptDraft};
 pub use category::{Category, CreateCategoryInput, UpdateCategoryInput};
 pub use crypto::EncryptedPayload;
 pub use project::{CreateProjectInput, Project, UpdateProjectInput};

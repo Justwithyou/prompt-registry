@@ -7,6 +7,9 @@ use prompt_core::AppError;
 const KEYRING_SERVICE: &str = "prompt-manager";
 const KEYRING_USER: &str = "master-key";
 
+/// AI 提供商 API Key 在钥匙串中的 user 标识。
+pub const AI_API_KEY_USER: &str = "ai-api-key";
+
 /// 秘密存储抽象，供 `CryptoVault` 注入，便于测试 mock。
 pub trait SecretStore: Send + Sync {
     /// 读取秘密；不存在时返回 `None`。
@@ -23,8 +26,14 @@ pub struct KeychainStore {
 }
 
 impl KeychainStore {
+    /// 构建默认 `master-key` 条目（Master Key 可选自动解锁）。
     pub fn new() -> Result<Self, AppError> {
-        let entry = keyring::Entry::new(KEYRING_SERVICE, KEYRING_USER)
+        Self::with_user(KEYRING_USER)
+    }
+
+    /// 以指定 user 构建条目（如 AI 提供商 API Key 用 [`AI_API_KEY_USER`]）。
+    pub fn with_user(user: &str) -> Result<Self, AppError> {
+        let entry = keyring::Entry::new(KEYRING_SERVICE, user)
             .map_err(|e| AppError::Crypto(e.to_string()))?;
         Ok(Self { entry })
     }

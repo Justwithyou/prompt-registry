@@ -465,3 +465,105 @@ export async function exportSkill(
 ): Promise<string> {
   return invoke<string>("export_skill", { id, outDir });
 }
+
+// ===== 存储位置命令 =====
+
+/** 查询当前数据存储位置（目录路径）。 */
+export async function getStorageLocation(): Promise<string> {
+  return invoke<string>("get_storage_location");
+}
+
+/** 修改数据存储位置（迁移数据并热切换），返回新的目录路径。 */
+export async function setStorageLocation(dir: string): Promise<string> {
+  return invoke<string>("set_storage_location", { dir });
+}
+
+// ===== 数据导入 / 导出命令（对应《个人提示词管理平台导入导出设计方案》§6）=====
+
+/** 单个实体类型的导入统计。 */
+export interface ImportCount {
+  imported: number;
+  skipped: number;
+}
+
+/** 一次导入的汇总结果（按实体类型拆分）。 */
+export interface ImportReport {
+  categories: ImportCount;
+  tags: ImportCount;
+  projects: ImportCount;
+  prompts: ImportCount;
+  versions: ImportCount;
+}
+
+/** 导出全量业务数据到指定文件（JSON），返回文件路径。 */
+export async function exportData(path: string): Promise<string> {
+  return invoke<string>("export_data", { path });
+}
+
+/**
+ * 从 JSON 文件导入全量业务数据。
+ * @param overwrite true=覆盖清空后导入，false=追加合并（跳过已有）。
+ */
+export async function importData(
+  path: string,
+  overwrite: boolean,
+): Promise<ImportReport> {
+  return invoke<ImportReport>("import_data", { path, overwrite });
+}
+
+// ===== AI 辅助命令（对应《AI 辅助生成提示词设计方案》§5.2）=====
+
+/** AI 提供商配置（非敏感项，入参不含 API Key）。 */
+export interface AiConfig {
+  provider: string;
+  baseUrl: string;
+  model: string;
+  temperature: number;
+  maxTokens: number;
+  timeoutSecs: number;
+}
+
+/** AI 配置读回视图（额外含「是否已配置 Key」布尔，绝不含 Key 明文）。 */
+export interface AiConfigView extends AiConfig {
+  hasApiKey: boolean;
+}
+
+/** 「AI 生成提示词」选项（均可选）。 */
+export interface GenerateOptions {
+  tone?: string;
+  audience?: string;
+  useVariables?: boolean;
+}
+
+/** AI 生成的结构化提示词草稿（不落库，由用户审阅后保存）。 */
+export interface PromptDraft {
+  title: string;
+  content: string;
+  description: string;
+  suggestedTags: string[];
+  suggestedCategory: string | null;
+  variables: VariableDefinition[];
+}
+
+/** 读取当前 AI 配置（含 `hasApiKey`，不含 Key 明文）。 */
+export async function getAiConfig(): Promise<AiConfigView> {
+  return invoke<AiConfigView>("get_ai_config");
+}
+
+/** 保存 AI 配置（只写非敏感字段）。 */
+export async function setAiConfig(config: AiConfig): Promise<AiConfigView> {
+  return invoke<AiConfigView>("set_ai_config", { config });
+}
+
+/** 写入（或清空）AI API Key：只进 OS 钥匙串，永不回显。 */
+export async function setAiApiKey(apiKey: string): Promise<void> {
+  return invoke<void>("set_ai_api_key", { apiKey });
+}
+
+/** 用自然语言需求生成一条结构化提示词草稿。 */
+export async function aiGeneratePrompt(
+  requirement: string,
+  options?: GenerateOptions,
+): Promise<PromptDraft> {
+  return invoke<PromptDraft>("ai_generate_prompt", { requirement, options });
+}

@@ -29,6 +29,16 @@ fn extracts_underscores_and_digits() {
 }
 
 #[test]
+fn extracts_chinese_and_special_char_names() {
+    let vars = extract_variables("{{主题}} {{城市}} {{user-name}} {{昵称1}}");
+    assert_eq!(vars.len(), 4);
+    assert_eq!(vars[0].name, "主题");
+    assert_eq!(vars[1].name, "城市");
+    assert_eq!(vars[2].name, "user-name");
+    assert_eq!(vars[3].name, "昵称1");
+}
+
+#[test]
 fn returns_empty_without_variables() {
     assert!(extract_variables("普通文本，无变量").is_empty());
     assert!(extract_variables("").is_empty());

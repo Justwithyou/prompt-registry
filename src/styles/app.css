@@ -774,6 +774,11 @@ html[data-theme="light"] .prompt-card-category {
   overflow-y: auto;
   padding: 1.5rem 1.5rem 3rem;
   max-width: 720px;
+  scrollbar-width: none;
+}
+
+.settings-page::-webkit-scrollbar {
+  display: none;
 }
 
 .settings-page h2 {
@@ -1275,6 +1280,14 @@ html[data-theme="light"] .prompt-card-category {
   border-radius: 8px;
   background: transparent;
   cursor: pointer;
+}
+
+.project-empty {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .project-grid {

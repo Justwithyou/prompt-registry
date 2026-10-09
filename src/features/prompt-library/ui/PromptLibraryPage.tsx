@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { usePromptStore } from "../stores/promptStore";
 import { Icon } from "../../../shared/ui/Icon";
+import type { PromptDraft } from "../../../shared/api/commands";
+import { AiGenerateDialog } from "../../ai-assistant/index";
 import { PromptList } from "./PromptList";
 import { PromptCard } from "./PromptCard";
 import { PromptFilterBar } from "./PromptFilterBar";
@@ -31,6 +33,7 @@ export function PromptLibraryPage({ batchToolbar }: { batchToolbar?: ReactNode }
   const navigate = useNavigate();
 
   const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
+  const [aiOpen, setAiOpen] = useState(false);
 
   useEffect(() => {
     void fetchPrompts();
@@ -38,6 +41,16 @@ export function PromptLibraryPage({ batchToolbar }: { batchToolbar?: ReactNode }
 
   async function handleCreate() {
     const created = await createPrompt({ title: "未命名提示词", content: "" });
+    navigate(`/prompts/${created.id}`);
+  }
+
+  async function handleAcceptDraft(draft: PromptDraft) {
+    const created = await createPrompt({
+      title: draft.title.trim() || "AI 生成的提示词",
+      content: draft.content,
+      description: draft.description || null,
+    });
+    setAiOpen(false);
     navigate(`/prompts/${created.id}`);
   }
 
@@ -87,6 +100,11 @@ export function PromptLibraryPage({ batchToolbar }: { batchToolbar?: ReactNode }
           批量
         </button>
 
+        <button type="button" className="btn-ghost" onClick={() => setAiOpen(true)}>
+          <Icon name="sparkles" size={16} />
+          AI 生成
+        </button>
+
         <button type="button" className="btn-primary" onClick={handleCreate}>
           <Icon name="plus" size={16} />
           新建
@@ -107,6 +125,13 @@ export function PromptLibraryPage({ batchToolbar }: { batchToolbar?: ReactNode }
         </div>
       ) : (
         <PromptList prompts={prompts} />
+      )}
+
+      {aiOpen && (
+        <AiGenerateDialog
+          onClose={() => setAiOpen(false)}
+          onAccept={handleAcceptDraft}
+        />
       )}
     </div>
   );

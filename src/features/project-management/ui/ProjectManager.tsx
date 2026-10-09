@@ -138,11 +138,13 @@ export function ProjectManager() {
         </div>
       ) : null}
 
-      <div className="project-grid">
-        {projects.length === 0 ? (
+      {projects.length === 0 ? (
+        <div className="project-empty">
           <div className="manager-empty">暂无项目，点击「新建项目」开始。</div>
-        ) : (
-          projects.map((project) => (
+        </div>
+      ) : (
+        <div className="project-grid">
+          {projects.map((project) => (
             <div key={project.id} className="project-card">
               <div className="project-card-top">
                 <span
@@ -176,9 +178,9 @@ export function ProjectManager() {
                 <span className="muted">{countFor(project.id)} 条提示词</span>
               </div>
             </div>
-          ))
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
       {showExport && (
         <ExportDialog

@@ -4,12 +4,13 @@ use std::sync::OnceLock;
 use prompt_core::VariableDefinition;
 use regex::Regex;
 
-/// 返回编译好的模板变量正则（`\{\{(\w+)\}\}`），进程内仅编译一次。
+/// 返回编译好的模板变量正则（`\{\{([^{}\s]+)\}\}`），进程内仅编译一次。
 ///
-/// `pub(crate)` 供 `render` 复用同一正则，避免重复编译。
+/// 变量名允许任意「非空白、非花括号」字符（含中文、连字符等），
+/// 与前端 `templateStore` 的渲染正则保持一致（单一契约）。
 pub(crate) fn variable_regex() -> &'static Regex {
     static RE: OnceLock<Regex> = OnceLock::new();
-    RE.get_or_init(|| Regex::new(r"\{\{(\w+)\}\}").expect("模板变量正则为常量，必然合法"))
+    RE.get_or_init(|| Regex::new(r"\{\{([^{}\s]+)\}\}").expect("模板变量正则为常量，必然合法"))
 }
 
 /// 从模板正文中提取 `{{变量名}}` 列表（M3 分工清单 §3.2 冻结签名）。

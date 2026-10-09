@@ -9,5 +9,5 @@ pub mod keyring;
 pub mod vault;
 
 pub use cipher::{derive_sync_key, AesGcmCipher};
-pub use keyring::{KeychainStore, SecretStore};
+pub use keyring::{KeychainStore, SecretStore, AI_API_KEY_USER};
 pub use vault::CryptoVault;

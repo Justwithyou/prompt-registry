@@ -100,16 +100,7 @@ export function AppLayout() {
                   className={`app-project-item${active ? " is-active" : ""}`}
                   onClick={() => browseProject(p.id)}
                 >
-                  <span
-                    className="project-swatch"
-                    style={{ background: p.color ?? "var(--accent)" }}
-                  />
-                  <span
-                    className="nav-label"
-                    style={p.color ? { color: p.color } : undefined}
-                  >
-                    {p.name}
-                  </span>
+                  <span className="nav-label">{p.name}</span>
                 </button>
               );
             })}

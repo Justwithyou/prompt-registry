@@ -29,6 +29,9 @@ pub enum AppError {
 
     #[error("网络错误: {0}")]
     Network(String),
+
+    #[error("AI 错误: {0}")]
+    Ai(String),
 }
 
 /// IPC 层将其序列化为字符串返回给前端。

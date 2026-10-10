@@ -1,4 +1,4 @@
-# 提示词管理平台（Prompt Manager）
+# 提示词管理平台（Prompt Registry）
 
 ![Version](https://img.shields.io/badge/version-1.0.0-2f6fed)
 ![License](https://img.shields.io/badge/license-MIT-green)
@@ -151,10 +151,13 @@ prompt-hub/
 
 ## 📚 文档
 
-- [`CLI与Skills使用手册.md`](CLI与Skills使用手册.md)
-- [`坚果云同步手册.md`](坚果云同步手册.md)
-- [`docs/个人提示词全流程管理平台架构设计方案.md`](docs/个人提示词全流程管理平台架构设计方案.md)
-- [`docs/`](docs/)：功能需求、导入导出、AI 能力与各里程碑设计文档
+- [`docs/功能需求.md`](docs/功能需求.md) — 产品规划与功能实现状态
+- [`docs/架构设计.md`](docs/架构设计.md) — 技术架构设计
+- [`docs/详细设计与排期.md`](docs/详细设计与排期.md) — 详细设计与开发排期
+- [`docs/导入导出设计.md`](docs/导入导出设计.md)、[`docs/AI辅助生成设计.md`](docs/AI辅助生成设计.md)、[`docs/AI进阶能力设计.md`](docs/AI进阶能力设计.md)、[`docs/CLI与Skills设计.md`](docs/CLI与Skills设计.md) — 各能力模块设计
+- [`docs/M0任务清单.md`](docs/M0任务清单.md)～[`docs/M5任务清单.md`](docs/M5任务清单.md) — 里程碑任务清单
+- [`坚果云同步手册.md`](坚果云同步手册.md) — 坚果云 WebDAV 同步配置
+- [`CLI与Skills使用手册.md`](CLI与Skills使用手册.md) — CLI 与 SKILL.md 使用说明
 
 ---
 

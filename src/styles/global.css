@@ -1,10 +1,10 @@
 :root {
-  /* 深色星空基调（后续由 Tailwind 主题接管） */
-  --bg: #0b1020;
-  --bg-soft: #141a2e;
-  --fg: #e6e9f2;
-  --fg-muted: #9aa3b8;
-  --accent: #6ea8fe;
+  /* IDEA 经典黑基调（后续由 Tailwind 主题接管） */
+  --bg: #2b2b2b;
+  --bg-soft: #323232;
+  --fg: #d4d4d4;
+  --fg-muted: #9a9a9a;
+  --accent: #4c8bd4;
   --radius: 12px;
 
   --font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", system-ui,
@@ -35,17 +35,21 @@ body,
 }
 
 body {
+  /* 克制版氛围光：底层保持 IDEA 黑，叠两层低透明蓝/紫径向光晕增加“呼吸感” */
   background:
-    radial-gradient(1200px 600px at 20% -10%, #1b2a52 0%, transparent 60%),
-    radial-gradient(1000px 500px at 90% 10%, #241a46 0%, transparent 55%),
+    radial-gradient(1000px 640px at 12% -8%, rgba(76, 139, 212, 0.12), transparent 60%),
+    radial-gradient(820px 560px at 88% 2%, rgba(124, 92, 210, 0.1), transparent 55%),
     var(--bg);
   color: var(--fg);
   transition: background-color 0.25s ease, color 0.25s ease;
 }
 
-/* 浅色主题：去掉深色星空光晕，只保留浅色背景 */
 html[data-theme="light"] body {
-  background: var(--bg);
+  /* 浅色模式：同款氛围光，透明度减半，更轻盈 */
+  background:
+    radial-gradient(1000px 640px at 12% -8%, rgba(47, 111, 237, 0.07), transparent 60%),
+    radial-gradient(820px 560px at 88% 2%, rgba(124, 92, 210, 0.05), transparent 55%),
+    var(--bg);
 }
 
 .app {

@@ -14,7 +14,7 @@ pub use models::{
     CreatePromptInput, CreateTagInput, EncryptedPayload, Project, Prompt, PromptDraft, PromptQuery,
     PromptRelations, PromptRelationsInput, PromptSortBy, PromptVersion, SyncConfig, SyncLogEntry,
     SyncResult, SyncStatus, Tag, UpdateCategoryInput, UpdateProjectInput, UpdatePromptInput,
-    UpdateTagInput, VariableDefinition,
+    UpdateTagInput, VariableDefinition, VaultEnvelope,
 };
 pub use traits::{
     CategoryRepository, ProjectRepository, PromptRepository, RemoteStore, SyncCipher,

@@ -28,8 +28,14 @@ fn config() -> AiConfig {
 fn parses_structured_json_and_extracts_variables() {
     let raw = r#"{"title":"周报生成器","content":"请根据 {{主题}} 生成一份每周周报，侧重 {{重点}}。","description":"周报模板","suggestedTags":["周报","办公"],"suggestedCategory":"效率"}"#;
     let provider = MockProvider(raw.to_string());
-    let draft = generate_prompt(&provider, &config(), "sk", "帮我写周报", &GenerateOptions::default())
-        .expect("生成失败");
+    let draft = generate_prompt(
+        &provider,
+        &config(),
+        "sk",
+        "帮我写周报",
+        &GenerateOptions::default(),
+    )
+    .expect("生成失败");
 
     assert_eq!(draft.title, "周报生成器");
     assert_eq!(draft.suggested_category.as_deref(), Some("效率"));
@@ -43,8 +49,14 @@ fn parses_structured_json_and_extracts_variables() {
 fn wraps_json_with_markdown_fence() {
     let raw = "```json\n{\"title\":\"T\",\"content\":\"C\",\"description\":\"\",\"suggestedTags\":[],\"suggestedCategory\":\"\"}\n```";
     let provider = MockProvider(raw.to_string());
-    let draft = generate_prompt(&provider, &config(), "sk", "需求", &GenerateOptions::default())
-        .expect("生成失败");
+    let draft = generate_prompt(
+        &provider,
+        &config(),
+        "sk",
+        "需求",
+        &GenerateOptions::default(),
+    )
+    .expect("生成失败");
     assert_eq!(draft.title, "T");
     assert_eq!(draft.content, "C");
 }
@@ -53,8 +65,14 @@ fn wraps_json_with_markdown_fence() {
 fn falls_back_to_raw_text_as_content() {
     let raw = "这是模型返回的一段纯文本，没有 JSON。";
     let provider = MockProvider(raw.to_string());
-    let draft = generate_prompt(&provider, &config(), "sk", "需求", &GenerateOptions::default())
-        .expect("生成失败");
+    let draft = generate_prompt(
+        &provider,
+        &config(),
+        "sk",
+        "需求",
+        &GenerateOptions::default(),
+    )
+    .expect("生成失败");
     assert_eq!(draft.content, raw);
     assert_eq!(draft.title, "");
     assert!(draft.variables.is_empty());

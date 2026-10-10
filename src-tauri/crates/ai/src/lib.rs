@@ -8,10 +8,16 @@
 
 use prompt_core::AppError;
 
+pub mod desensitize;
+pub mod extract;
 pub mod generate;
+pub mod polish;
 pub mod provider;
 
+pub use desensitize::{is_local, sanitize, MaskedText};
+pub use extract::extract_variables_ai;
 pub use generate::{generate_prompt, GenerateOptions};
+pub use polish::{polish_prompt, PolishOptions};
 pub use provider::{OpenAiCompatibleProvider, Provider};
 
 /// 构造 AI 错误（统一 `AppError::Ai`，错误信息不携带密钥等敏感内容）。

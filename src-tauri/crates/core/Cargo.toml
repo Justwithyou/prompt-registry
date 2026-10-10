@@ -3,6 +3,14 @@ name = "core"
 version = "0.1.0"
 edition = "2021"
 
+# 包名「core」与标准库 core 冲突：doctest 会把本包链路为 crate 名 core，
+# 遮蔽标准库，导致 write!/fmt 等宏报「cannot find ... in core」。
+# 因此显式把库名改为 prompt_core（依赖侧键名 prompt_core 正好对齐），
+# 包名保持不变，避免改动所有下游 Cargo.toml 里的 `package = "core"` 引用。
+[lib]
+name = "prompt_core"
+path = "src/lib.rs"
+
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

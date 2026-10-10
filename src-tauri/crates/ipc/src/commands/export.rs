@@ -8,7 +8,7 @@ use tauri::State;
 use crate::state::AppState;
 
 // CLI/Skills 输出能力（对应《CLI 与 Skills 输出能力设计方案》§9）。
-// 命令名 + 入参/出参类型即前后端契约；锁定态拒绝导出，需先解锁。
+// 命令名 + 入参/出参类型即前后端契约；导出均为明文写盘，无需保险库解锁。
 
 /// 从 AppState 复用已注入的 repository 与模板提取器，构造导出内核。
 fn export_service(state: &AppState) -> ExportService {
@@ -28,7 +28,6 @@ pub fn render_prompt(
     id: String,
     vars: HashMap<String, String>,
 ) -> Result<String, AppError> {
-    state.ensure_unlocked()?;
     export_service(&state).render_one(&id, &vars)
 }
 
@@ -42,8 +41,8 @@ pub fn export_prompts(
     render: bool,
     vars: HashMap<String, String>,
 ) -> Result<Vec<String>, AppError> {
-    state.ensure_unlocked()?;
-    let fmt = ExportFormat::parse(&format).ok_or_else(|| AppError::Template(format!("未知导出格式: {format}")))?;
+    let fmt = ExportFormat::parse(&format)
+        .ok_or_else(|| AppError::Template(format!("未知导出格式: {format}")))?;
     export_service(&state).export(
         &selector.to_selector(),
         fmt,
@@ -60,7 +59,6 @@ pub fn export_skill(
     id: String,
     out_dir: String,
 ) -> Result<String, AppError> {
-    state.ensure_unlocked()?;
     let paths = export_service(&state).export(
         &ExportSelector::Ids(vec![id]),
         ExportFormat::Skill,

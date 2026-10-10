@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { Prompt } from "../../../entities/prompt/types";
 import { PromptCard } from "./PromptCard";
+import { EmptyState } from "../../../shared/ui/EmptyState";
 
 /**
  * 提示词虚拟滚动列表（prompt-library/ui）。
@@ -9,12 +10,18 @@ import { PromptCard } from "./PromptCard";
  * 不引入第三方依赖（对应架构方案 3.4 / 12.3 的虚拟滚动要求）。
  */
 
-// 与样式表 `app.css` 中 `.prompt-card` 的固定高度（132）＋间距（16）保持一致。
-const CARD_HEIGHT = 148;
+// 与样式表 `app.css` 中 `.prompt-card` 的固定高度（152）＋间距（16）保持一致。
+const CARD_HEIGHT = 168;
 // 可视区外多渲染的行数，减少快速滚动时的白屏。
 const OVERSCAN = 4;
 
-export function PromptList({ prompts }: { prompts: Prompt[] }) {
+export function PromptList({
+  prompts,
+  onCreate,
+}: {
+  prompts: Prompt[];
+  onCreate?: () => void;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const [viewport, setViewport] = useState(0);
@@ -41,7 +48,13 @@ export function PromptList({ prompts }: { prompts: Prompt[] }) {
       onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
     >
       {total === 0 ? (
-        <div className="prompt-list-empty">暂无提示词，点击「新建」开始。</div>
+        <EmptyState
+          icon="file-text"
+          title="还没有提示词"
+          description="创建第一条提示词，随时整理、检索和调用"
+          actionLabel="新建提示词"
+          onAction={onCreate}
+        />
       ) : (
         <div className="prompt-list-spacer" style={{ height: total * CARD_HEIGHT }}>
           <div

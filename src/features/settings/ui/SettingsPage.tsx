@@ -3,7 +3,11 @@ import type { ChangeEvent } from "react";
 import { usePromptStore } from "../../prompt-library/index";
 import { useSettingsStore } from "../stores/settingsStore";
 import { Icon } from "../../../shared/ui/Icon";
+import { Select } from "../../../shared/ui/Select";
+import { useEscapeKey } from "../../../shared/hooks/useEscapeKey";
 import { VaultPanel } from "./VaultPanel";
+import { AiConfigDialog } from "./AiConfigDialog";
+import { CollapsibleSection } from "../../../shared/ui/CollapsibleSection";
 import { FONT_OPTIONS, IMPORTED_FONT_KEY, saveImportedFont } from "../../../shared/lib/fonts";
 import { open, save } from "@tauri-apps/plugin-dialog";
 import {
@@ -11,11 +15,8 @@ import {
   setStorageLocation as changeStorageLocation,
   exportData,
   importData,
-  getAiConfig,
-  setAiConfig,
-  setAiApiKey,
+  importDb,
   type ImportReport,
-  type AiConfig,
 } from "../../../shared/api/commands";
 
 /** 把导入报告渲染成一段可读摘要文本。 */
@@ -34,16 +35,19 @@ function summarizeImport(report: ImportReport): string {
 /**
  * 设置页骨架（settings/ui）。
  * 可交互项：主题 / 全局字体（含导入本地字体）/ 存储位置 / 清空数据 / 数据导入导出 / 关于。
+ * AI 配置已抽离到 AiConfigDialog（弹窗），由「AI 辅助」开关控制是否打开。
  */
 export function SettingsPage() {
   const theme = useSettingsStore((s) => s.theme);
   const storageLocation = useSettingsStore((s) => s.storageLocation);
   const fontKey = useSettingsStore((s) => s.fontKey);
   const importedFontName = useSettingsStore((s) => s.importedFontName);
-  const toggleTheme = useSettingsStore((s) => s.toggleTheme);
+  const setTheme = useSettingsStore((s) => s.setTheme);
   const setStorageLocation = useSettingsStore((s) => s.setStorageLocation);
   const setFontKey = useSettingsStore((s) => s.setFontKey);
   const setImportedFont = useSettingsStore((s) => s.setImportedFont);
+  const aiEnabled = useSettingsStore((s) => s.aiEnabled);
+  const toggleAiEnabled = useSettingsStore((s) => s.toggleAiEnabled);
   const clearAll = usePromptStore((s) => s.clearAll);
 
   const fileRef = useRef<HTMLInputElement>(null);
@@ -64,36 +68,18 @@ export function SettingsPage() {
   const [importingData, setImportingData] = useState(false);
   const [importMessage, setImportMessage] = useState<string | null>(null);
   const [importDataError, setImportDataError] = useState<string | null>(null);
-  const [aiDraft, setAiDraft] = useState<AiConfig>({
-    provider: "openai",
-    baseUrl: "https://api.openai.com/v1",
-    model: "gpt-4o-mini",
-    temperature: 0.7,
-    maxTokens: 2048,
-    timeoutSecs: 60,
-  });
-  const [aiHasKey, setAiHasKey] = useState(false);
-  const [aiKey, setAiKey] = useState("");
-  const [aiSaving, setAiSaving] = useState(false);
-  const [aiKeySaving, setAiKeySaving] = useState(false);
-  const [aiMessage, setAiMessage] = useState<string | null>(null);
-  const [aiError, setAiError] = useState<string | null>(null);
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
+  const [openSection, setOpenSection] = useState<string | null>(null);
+
+  function toggleSection(key: string) {
+    setOpenSection((prev) => (prev === key ? null : key));
+  }
+
+  useEscapeKey(() => setConfirmOpen(false), confirmOpen);
 
   useEffect(() => {
     void getStorageLocation().then(setStorageLocation);
   }, [setStorageLocation]);
-
-  useEffect(() => {
-    getAiConfig()
-      .then((cfg) => {
-        const { hasApiKey, ...rest } = cfg;
-        setAiDraft(rest);
-        setAiHasKey(hasApiKey);
-      })
-      .catch(() => {
-        /* 配置读取失败时保留默认值 */
-      });
-  }, []);
 
   async function handleConfirmClear() {
     setClearing(true);
@@ -171,10 +157,16 @@ export function SettingsPage() {
         title: "选择要导入的数据文件",
         multiple: false,
         directory: false,
-        filters: [{ name: "JSON", extensions: ["json"] }],
+        filters: [
+          { name: "JSON 数据", extensions: ["json"] },
+          { name: "数据库", extensions: ["db"] },
+        ],
       });
       if (typeof p !== "string") return;
-      const report = await importData(p, overwrite);
+      const isDb = p.toLowerCase().endsWith(".db");
+      const report = isDb
+        ? await importDb(p, overwrite)
+        : await importData(p, overwrite);
       setImportMessage(summarizeImport(report));
     } catch (e) {
       setImportDataError(String(e));
@@ -199,86 +191,69 @@ export function SettingsPage() {
     }
   }
 
-  function updateAi(patch: Partial<AiConfig>) {
-    setAiDraft((d) => ({ ...d, ...patch }));
-    setAiMessage(null);
-    setAiError(null);
-  }
-
-  async function handleAiSave() {
-    setAiSaving(true);
-    setAiMessage(null);
-    setAiError(null);
-    try {
-      const cfg = await setAiConfig(aiDraft);
-      setAiHasKey(cfg.hasApiKey);
-      setAiMessage("已保存 AI 配置。");
-    } catch (e) {
-      setAiError(String(e));
-    } finally {
-      setAiSaving(false);
-    }
-  }
-
-  async function handleAiKeySave() {
-    setAiKeySaving(true);
-    setAiMessage(null);
-    setAiError(null);
-    try {
-      await setAiApiKey(aiKey);
-      setAiKey("");
-      const cfg = await getAiConfig();
-      setAiHasKey(cfg.hasApiKey);
-      setAiMessage(
-        cfg.hasApiKey ? "API Key 已保存（仅存于系统钥匙串）。" : "已清空 API Key。",
-      );
-    } catch (e) {
-      setAiError(String(e));
-    } finally {
-      setAiKeySaving(false);
-    }
-  }
-
   return (
     <div className="settings-page">
+      <div className="settings-inner">
       <h2>设置</h2>
 
-      <section className="settings-section">
-        <h3>外观</h3>
+      <CollapsibleSection
+        title="外观"
+        open={openSection === "appearance"}
+        onToggle={() => toggleSection("appearance")}
+      >
         <div className="settings-row">
           <div>
             <div className="settings-label">主题</div>
             <div className="settings-hint">
-              当前：{theme === "dark" ? "深色（星空）" : "浅色"}
+              {theme === "system"
+                ? "跟随系统"
+                : theme === "dark"
+                  ? "深色模式"
+                  : "浅色模式"}
             </div>
           </div>
-          <button type="button" className="btn-primary" onClick={toggleTheme}>
-            <Icon name={theme === "dark" ? "sun" : "moon"} size={16} />
-            切换到{theme === "dark" ? "浅色" : "深色"}
-          </button>
+          <div className="theme-switcher" role="radiogroup" aria-label="主题模式">
+            <button
+              type="button"
+              className={`theme-switcher-btn${theme === "system" ? " is-active" : ""}`}
+              onClick={() => setTheme("system")}
+              title="跟随系统"
+            >
+              <Icon name="monitor" size={16} />
+            </button>
+            <button
+              type="button"
+              className={`theme-switcher-btn${theme === "light" ? " is-active" : ""}`}
+              onClick={() => setTheme("light")}
+              title="浅色模式"
+            >
+              <Icon name="sun" size={16} />
+            </button>
+            <button
+              type="button"
+              className={`theme-switcher-btn${theme === "dark" ? " is-active" : ""}`}
+              onClick={() => setTheme("dark")}
+              title="深色模式"
+            >
+              <Icon name="moon" size={16} />
+            </button>
+          </div>
         </div>
 
         <div className="settings-row" style={{ marginTop: "1rem" }}>
           <div className="settings-grow">
             <div className="settings-label">全局字体</div>
-            <div className="settings-hint" style={{ marginTop: 0 }}>
-              改变整个应用的显示字体
-            </div>
-            <select
+            <div className="settings-hint">改变整个应用的显示字体</div>
+            <Select
               value={fontKey}
-              onChange={(e) => setFontKey(e.target.value)}
-            >
-              {FONT_OPTIONS.map((f) => (
-                <option key={f.key} value={f.key}>
-                  {f.label}
-                </option>
-              ))}
-              {importedFontName && (
-                <option value={IMPORTED_FONT_KEY}>
-                  {importedFontName}（本地）
-                </option>
-              )}
-            </select>
+              onChange={setFontKey}
+              options={[
+                ...FONT_OPTIONS.map((f) => ({ value: f.key, label: f.label })),
+                ...(importedFontName
+                  ? [{ value: IMPORTED_FONT_KEY, label: `${importedFontName}（本地）` }]
+                  : []),
+              ]}
+            />
           </div>
         </div>
 
@@ -309,146 +284,60 @@ export function SettingsPage() {
             onChange={handleImportFont}
           />
         </div>
-      </section>
+      </CollapsibleSection>
 
-      <section className="settings-section">
-        <h3>AI 辅助</h3>
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-          <div className="settings-row">
-            <div className="settings-grow">
-              <div className="settings-label">服务地址（baseUrl）</div>
-              <div className="settings-hint" style={{ marginTop: 0 }}>
-                OpenAI 兼容接口根地址，生成时自动追加 /chat/completions
-              </div>
-              <input
-                type="text"
-                value={aiDraft.baseUrl}
-                placeholder="https://api.openai.com/v1"
-                onChange={(e) => updateAi({ baseUrl: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="settings-row">
-            <div className="settings-grow">
-              <div className="settings-label">模型（model）</div>
-              <input
-                type="text"
-                value={aiDraft.model}
-                placeholder="gpt-4o-mini"
-                onChange={(e) => updateAi({ model: e.target.value })}
-              />
-            </div>
-            <div className="settings-grow" style={{ marginLeft: "0.75rem" }}>
-              <div className="settings-label">提供商标识</div>
-              <input
-                type="text"
-                value={aiDraft.provider}
-                placeholder="openai"
-                onChange={(e) => updateAi({ provider: e.target.value })}
-              />
-            </div>
-          </div>
-
-          <div className="settings-row">
-            <div style={{ display: "flex", gap: "0.75rem", width: "100%" }}>
-              <div className="settings-grow">
-                <div className="settings-label">temperature</div>
-                <input
-                  type="number"
-                  min={0}
-                  max={2}
-                  step={0.1}
-                  value={aiDraft.temperature}
-                  onChange={(e) =>
-                    updateAi({ temperature: Number(e.target.value) })
-                  }
-                />
-              </div>
-              <div className="settings-grow">
-                <div className="settings-label">maxTokens</div>
-                <input
-                  type="number"
-                  min={1}
-                  value={aiDraft.maxTokens}
-                  onChange={(e) => updateAi({ maxTokens: Number(e.target.value) })}
-                />
-              </div>
-              <div className="settings-grow">
-                <div className="settings-label">超时（秒）</div>
-                <input
-                  type="number"
-                  min={1}
-                  value={aiDraft.timeoutSecs}
-                  onChange={(e) =>
-                    updateAi({ timeoutSecs: Number(e.target.value) })
-                  }
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="settings-row" style={{ alignItems: "flex-end" }}>
-            <div className="settings-grow">
-              <div className="settings-label">
-                API Key {aiHasKey ? "（已配置）" : "（未配置）"}
-              </div>
-              <div className="settings-hint" style={{ marginTop: 0 }}>
-                只存于系统钥匙串，保存后不回显；留空保存即清空。
-              </div>
-              <input
-                type="password"
-                value={aiKey}
-                placeholder={aiHasKey ? "已配置，如需更换请输入新 Key" : "输入 API Key"}
-                onChange={(e) => setAiKey(e.target.value)}
-              />
-            </div>
+      <CollapsibleSection
+        title="AI 辅助"
+        open={openSection === "ai"}
+        onToggle={() => toggleSection("ai")}
+        headerRight={
+          <div className="settings-ai-actions">
             <button
               type="button"
               className="btn-ghost"
-              disabled={aiKeySaving || !aiKey.trim()}
-              onClick={handleAiKeySave}
+              onClick={() => setAiDialogOpen(true)}
             >
-              {aiKeySaving ? "保存中…" : "保存 Key"}
+              <Icon name="settings" size={15} />
+              配置
             </button>
-          </div>
-
-          {aiMessage && (
-            <div className="settings-hint" style={{ marginTop: 0 }}>
-              {aiMessage}
-            </div>
-          )}
-          {aiError && (
-            <div
-              className="settings-hint"
-              style={{ marginTop: 0, color: "var(--danger)", wordBreak: "break-all" }}
-            >
-              {aiError}
-            </div>
-          )}
-
-          <div>
             <button
               type="button"
-              className="btn-primary"
-              disabled={aiSaving}
-              onClick={handleAiSave}
+              className={`switch${aiEnabled ? " is-on" : ""}`}
+              role="switch"
+              aria-checked={aiEnabled}
+              onClick={toggleAiEnabled}
             >
-              {aiSaving ? "保存中…" : "保存 AI 配置"}
+              <span className="switch-track" />
+              <span className="switch-label">{aiEnabled ? "已开启" : "已关闭"}</span>
             </button>
           </div>
+        }
+      >
+        <div className="settings-hint">
+          AI 生成 / 调优 / 提取变量 / 本地模型 / 脱敏
         </div>
-      </section>
+      </CollapsibleSection>
 
-      <VaultPanel />
+      <AiConfigDialog
+        open={aiDialogOpen}
+        onClose={() => setAiDialogOpen(false)}
+      />
 
-      <section className="settings-section">
-        <h3>存储</h3>
+      <VaultPanel
+        open={openSection === "security"}
+        onToggle={() => toggleSection("security")}
+      />
+
+      <CollapsibleSection
+        title="存储"
+        open={openSection === "storage"}
+        onToggle={() => toggleSection("storage")}
+      >
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
           <div className="settings-row">
             <div className="settings-grow">
               <div className="settings-label">当前数据存储位置</div>
-              <div className="settings-hint" style={{ marginTop: 0, wordBreak: "break-all" }}>
+              <div className="settings-hint" style={{ marginTop: "0.5rem", wordBreak: "break-all" }}>
                 {storageLocation || "读取中…"}
               </div>
             </div>
@@ -492,10 +381,13 @@ export function SettingsPage() {
             </div>
           )}
         </div>
-      </section>
+      </CollapsibleSection>
 
-      <section className="settings-section">
-        <h3>数据</h3>
+      <CollapsibleSection
+        title="数据"
+        open={openSection === "data"}
+        onToggle={() => toggleSection("data")}
+      >
         <div className="settings-row">
           <div>
             <div className="settings-label">清空数据</div>
@@ -516,17 +408,18 @@ export function SettingsPage() {
             清空数据
           </button>
         </div>
-      </section>
+      </CollapsibleSection>
 
-      <section className="settings-section">
-        <h3>数据导入 / 导出</h3>
+      <CollapsibleSection
+        title="数据导入 / 导出"
+        open={openSection === "transfer"}
+        onToggle={() => toggleSection("transfer")}
+      >
         <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
           <div className="settings-row" style={{ alignItems: "flex-end" }}>
             <div className="settings-grow">
               <div className="settings-label">导出数据</div>
-              <div className="settings-hint" style={{ marginTop: 0 }}>
-                把当前全部数据导出为单个 JSON 文件
-              </div>
+              <div className="settings-hint">把当前全部数据导出为单个 JSON 文件</div>
             </div>
             <button
               type="button"
@@ -554,17 +447,17 @@ export function SettingsPage() {
           >
             <div className="settings-grow">
               <div className="settings-label">导入数据</div>
-              <div className="settings-hint" style={{ marginTop: 0 }}>
-                从 JSON 文件导入；追加合并会跳过已有 ID，覆盖清空会先删除现有数据
+              <div className="settings-hint">
+                从 JSON 或本平台 .db 数据库文件导入；追加合并会跳过已有 ID，覆盖清空会先删除现有数据
               </div>
-              <select
-                style={{ marginTop: "0.5rem" }}
+              <Select
                 value={overwrite ? "overwrite" : "merge"}
-                onChange={(e) => setOverwrite(e.target.value === "overwrite")}
-              >
-                <option value="merge">追加合并（跳过已有）</option>
-                <option value="overwrite">覆盖清空后导入</option>
-              </select>
+                onChange={(value) => setOverwrite(value === "overwrite")}
+                options={[
+                  { value: "merge", label: "追加合并（跳过已有）" },
+                  { value: "overwrite", label: "覆盖清空后导入" },
+                ]}
+              />
             </div>
             <button
               type="button"
@@ -586,17 +479,21 @@ export function SettingsPage() {
             </div>
           )}
         </div>
-      </section>
+      </CollapsibleSection>
 
-      <section className="settings-section">
-        <h3>关于</h3>
+      <CollapsibleSection
+        title="关于"
+        open={openSection === "about"}
+        onToggle={() => toggleSection("about")}
+      >
         <div className="settings-row">
           <div>
             <div className="settings-label">提示词管理平台</div>
             <div className="settings-hint">v1.0 正式版</div>
           </div>
         </div>
-      </section>
+      </CollapsibleSection>
+      </div>
 
       {confirmOpen && (
         <div className="editor-overlay" onClick={() => setConfirmOpen(false)}>

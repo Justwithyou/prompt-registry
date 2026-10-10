@@ -5,7 +5,10 @@ import {
   type CategoryNode,
 } from "../../../shared/lib/organization";
 import { Icon } from "../../../shared/ui/Icon";
+import { EmptyState } from "../../../shared/ui/EmptyState";
 import { ExportDialog } from "../../import-export/index";
+import { ConfirmDialog } from "../../../shared/ui/ConfirmDialog";
+import { toast } from "../../../shared/ui/toastStore";
 
 /**
  * 分类管理器（D1 / catalog/ui）。
@@ -25,10 +28,15 @@ export function CategoryManager() {
   );
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [newFormOpen, setNewFormOpen] = useState(false);
   const [newParentId, setNewParentId] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [overId, setOverId] = useState<string | null>(null);
   const [showExport, setShowExport] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const draggedRef = useRef<string | null>(null);
 
   function toggleExpand(id: string) {
@@ -45,13 +53,17 @@ export function CategoryManager() {
     setDraft(name);
   }
 
-  function commitEdit(id: string) {
+  async function commitEdit(id: string) {
     const name = draft.trim();
-    if (name) updateCategory(id, { name });
+    if (name) {
+      await updateCategory(id, { name });
+      toast("已重命名分类");
+    }
     setEditingId(null);
   }
 
   function handleAdd(parentId: string | null) {
+    setNewFormOpen(true);
     setNewParentId(parentId);
     setNewName("");
     if (parentId) setExpanded((prev) => new Set(prev).add(parentId));
@@ -59,14 +71,24 @@ export function CategoryManager() {
 
   async function commitNew() {
     const name = newName.trim();
-    if (name && newParentId !== null) {
-      await createCategory({ name, parentId: newParentId });
+    if (name) {
+      await createCategory({ name, parentId: newParentId ?? null });
+      toast("已创建分类");
     }
+    setNewFormOpen(false);
     setNewParentId(null);
     setNewName("");
   }
 
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    await deleteCategory(deleteTarget.id);
+    toast("已删除分类");
+    setDeleteTarget(null);
+  }
+
   function cancelNew() {
+    setNewFormOpen(false);
     setNewParentId(null);
     setNewName("");
   }
@@ -190,13 +212,13 @@ export function CategoryManager() {
               type="button"
               className="icon-btn is-danger"
               title="删除"
-              onClick={() => deleteCategory(node.id)}
+              onClick={() => setDeleteTarget({ id: node.id, name: node.name })}
             >
               <Icon name="trash" size={14} />
             </button>
           </span>
         </div>
-        {newParentId === node.id && renderNewNode(depth + 1)}
+        {newFormOpen && newParentId === node.id && renderNewNode(depth + 1)}
         {isOpen && hasChildren && node.children.map((c) => renderNode(c, depth + 1))}
       </div>
     );
@@ -229,11 +251,17 @@ export function CategoryManager() {
       </header>
 
       <div className="tree-container">
-        {newParentId === null && renderNewNode(0)}
+        {newFormOpen && newParentId === null && renderNewNode(0)}
         {tree.length === 0 ? (
-          newParentId !== null ? null : (
-            <div className="manager-empty">暂无分类，点击「新建分类」开始。</div>
-          )
+          !newFormOpen ? (
+            <EmptyState
+              icon="folder"
+              title="还没有分类"
+              description="用分类组织提示词，便于按主题浏览"
+              actionLabel="新建分类"
+              onAction={() => handleAdd(null)}
+            />
+          ) : null
         ) : (
           tree.map((n) => renderNode(n, 0))
         )}
@@ -248,6 +276,20 @@ export function CategoryManager() {
           onClose={() => setShowExport(false)}
         />
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="删除分类"
+        message={
+          <>
+            确定删除分类「<strong>{deleteTarget?.name ?? ""}</strong>」吗？
+          </>
+        }
+        confirmLabel="删除"
+        danger
+        onConfirm={() => void confirmDelete()}
+        onClose={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

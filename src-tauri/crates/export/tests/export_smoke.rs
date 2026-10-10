@@ -5,8 +5,8 @@ use std::sync::Arc;
 
 use export::{ExportFormat, ExportSelector, ExportService};
 use prompt_core::{
-    CategoryRepository, CreateCategoryInput, CreatePromptInput, CreateTagInput,
-    ProjectRepository, PromptRelationsInput, PromptRepository, TagRepository, TemplateExtractor,
+    CategoryRepository, CreateCategoryInput, CreatePromptInput, CreateTagInput, ProjectRepository,
+    PromptRelationsInput, PromptRepository, TagRepository, TemplateExtractor,
 };
 use storage::{
     Db, SqliteCategoryRepository, SqliteProjectRepository, SqlitePromptRepository,
@@ -59,7 +59,12 @@ fn assemble_render_and_export_skill() {
 
     // IR 拼装与层级展开
     let items = svc
-        .items(&ExportSelector::Ids(vec![created.id.clone()]), None, false, &HashMap::new())
+        .items(
+            &ExportSelector::Ids(vec![created.id.clone()]),
+            None,
+            false,
+            &HashMap::new(),
+        )
         .expect("items");
     assert_eq!(items.len(), 1);
     let item = &items[0];
@@ -78,7 +83,13 @@ fn assemble_render_and_export_skill() {
     // 导出 SKILL.md
     let out = std::env::temp_dir().join(format!("prompt-export-smoke-{}", created.id));
     let written = svc
-        .export(&ExportSelector::Ids(vec![created.id.clone()]), ExportFormat::Skill, false, &HashMap::new(), &out)
+        .export(
+            &ExportSelector::Ids(vec![created.id.clone()]),
+            ExportFormat::Skill,
+            false,
+            &HashMap::new(),
+            &out,
+        )
         .expect("export");
     assert_eq!(written.len(), 1);
     let text = std::fs::read_to_string(&written[0]).expect("read skill");

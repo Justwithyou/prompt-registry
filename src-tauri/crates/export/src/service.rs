@@ -5,8 +5,8 @@ use std::path::Path;
 use std::sync::Arc;
 
 use prompt_core::{
-    AppError, Category, CategoryRepository, ProjectRepository, Prompt, PromptQuery, PromptRepository,
-    Tag, TagRepository, TemplateExtractor, VariableDefinition,
+    AppError, Category, CategoryRepository, ProjectRepository, Prompt, PromptQuery,
+    PromptRepository, Tag, TagRepository, TemplateExtractor, VariableDefinition,
 };
 
 use crate::item::{ExportFormat, ExportItem, ExportMeta, ExportSelector};
@@ -69,7 +69,10 @@ impl ExportService {
             .find_by_id(id)?
             .ok_or_else(|| AppError::NotFound(id.to_string()))?;
         let definitions = self.extractor.extract_variables(&prompt.content);
-        Ok(template::render(&prompt.content, &merge_defaults(&definitions, vars)))
+        Ok(template::render(
+            &prompt.content,
+            &merge_defaults(&definitions, vars),
+        ))
     }
 
     /// 导出到目录，返回写到磁盘的文件路径列表。
@@ -132,9 +135,13 @@ impl ExportService {
                 };
                 match selector {
                     ExportSelector::All => {}
-                    ExportSelector::Category(id) => query.category_id = Some(id.clone()),
-                    ExportSelector::Project(id) => query.project_id = Some(id.clone()),
-                    ExportSelector::Tags(ids) => query.tag_ids = Some(ids.clone()),
+                    ExportSelector::Categories(ids) => query.category_ids = Some(ids.clone()),
+                    ExportSelector::Projects(ids) => query.project_ids = Some(ids.clone()),
+                    ExportSelector::Tags(ids) => {
+                        query.tag_ids = Some(ids.clone());
+                        // 导出按「任一标签命中」并集，而非筛选面板的交集语义。
+                        query.tag_match_any = true;
+                    }
                     ExportSelector::Ids(_) => unreachable!(),
                 }
                 self.prompt_repo.find_all(&query)

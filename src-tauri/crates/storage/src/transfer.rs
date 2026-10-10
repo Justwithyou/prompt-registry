@@ -100,16 +100,30 @@ pub fn export_bundle(db: &Db) -> Result<DataBundle, AppError> {
     let conn = db.lock()?;
     let inner = conn.inner();
 
-    let categories = query_all(inner, "SELECT id, name, parent_id, sort_order, created_at \
-         FROM categories ORDER BY sort_order ASC, created_at ASC", row_to_category)?;
-    let tags = query_all(inner, "SELECT id, name, parent_id, color, created_at \
-         FROM tags ORDER BY created_at ASC", row_to_tag)?;
-    let projects = query_all(inner, "SELECT id, name, description, color, created_at, updated_at \
-         FROM projects ORDER BY created_at ASC", row_to_project)?;
+    let categories = query_all(
+        inner,
+        "SELECT id, name, parent_id, sort_order, created_at \
+         FROM categories ORDER BY sort_order ASC, created_at ASC",
+        row_to_category,
+    )?;
+    let tags = query_all(
+        inner,
+        "SELECT id, name, parent_id, color, created_at \
+         FROM tags ORDER BY created_at ASC",
+        row_to_tag,
+    )?;
+    let projects = query_all(
+        inner,
+        "SELECT id, name, description, color, created_at, updated_at \
+         FROM projects ORDER BY created_at ASC",
+        row_to_project,
+    )?;
     let prompts = query_all(
         inner,
-        &format!("SELECT {PROMPT_COLUMNS} FROM prompts WHERE deleted_at IS NULL \
-                  ORDER BY created_at ASC"),
+        &format!(
+            "SELECT {PROMPT_COLUMNS} FROM prompts WHERE deleted_at IS NULL \
+                  ORDER BY created_at ASC"
+        ),
         row_to_prompt,
     )?;
 
@@ -160,7 +174,11 @@ pub fn export_bundle(db: &Db) -> Result<DataBundle, AppError> {
 ///
 /// 全程在单个事务内完成；任意一步失败即整体回滚。ID 冲突一律「跳过已有」
 /// （`INSERT OR IGNORE`），不覆盖目标库本地记录。
-pub fn import_bundle(db: &Db, bundle: &DataBundle, overwrite: bool) -> Result<ImportReport, AppError> {
+pub fn import_bundle(
+    db: &Db,
+    bundle: &DataBundle,
+    overwrite: bool,
+) -> Result<ImportReport, AppError> {
     let mut conn = db.lock()?;
     let tx = conn.inner_mut().transaction().map_err(db_err)?;
 
@@ -264,7 +282,14 @@ pub fn import_bundle(db: &Db, bundle: &DataBundle, overwrite: bool) -> Result<Im
             .execute(
                 "INSERT OR IGNORE INTO prompt_versions (id, prompt_id, version, content, \
                  change_summary, created_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                params![v.id, v.prompt_id, v.version, v.content, v.change_summary, v.created_at],
+                params![
+                    v.id,
+                    v.prompt_id,
+                    v.version,
+                    v.content,
+                    v.change_summary,
+                    v.created_at
+                ],
             )
             .map_err(db_err)?;
         report.versions.add(n);
@@ -358,11 +383,14 @@ fn row_to_version(row: &Row<'_>) -> rusqlite::Result<PromptVersion> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::repository::{
+        SqliteCategoryRepository, SqliteProjectRepository, SqlitePromptRepository,
+        SqliteTagRepository,
+    };
     use prompt_core::{
         CategoryRepository, CreateCategoryInput, CreateProjectInput, CreatePromptInput,
         CreateTagInput, ProjectRepository, PromptRepository, TagRepository,
     };
-    use crate::repository::{SqliteCategoryRepository, SqliteProjectRepository, SqlitePromptRepository, SqliteTagRepository};
 
     /// 在内存库中写入一组覆盖分类/标签/项目/提示词的最小数据。
     fn seed(db: &Db) {
@@ -441,7 +469,9 @@ mod tests {
 
         // 验证可读回并保留关系引用。
         let prompt_repo = SqlitePromptRepository::new(dst.clone());
-        let all = prompt_repo.find_all(&prompt_core::PromptQuery::default()).unwrap();
+        let all = prompt_repo
+            .find_all(&prompt_core::PromptQuery::default())
+            .unwrap();
         assert_eq!(all.len(), 1);
         let rel = prompt_repo.get_relations(&all[0].id).unwrap();
         assert_eq!(rel.project_ids.len(), 1);
@@ -462,6 +492,12 @@ mod tests {
         assert_eq!(second.prompts.skipped, 1);
         assert_eq!(second.prompts.imported, 0);
         let prompt_repo = SqlitePromptRepository::new(dst.clone());
-        assert_eq!(prompt_repo.find_all(&prompt_core::PromptQuery::default()).unwrap().len(), 1);
+        assert_eq!(
+            prompt_repo
+                .find_all(&prompt_core::PromptQuery::default())
+                .unwrap()
+                .len(),
+            1
+        );
     }
 }

@@ -66,6 +66,11 @@ pub struct PromptQuery {
     pub category_id: Option<String>,
     pub is_favorite: Option<bool>,
     pub sort_by: Option<PromptSortBy>,
+    // —— M7 批量导出多选：多分类 / 多项目为「并集」（命中任意其一即纳入）——
+    pub category_ids: Option<Vec<String>>,
+    pub project_ids: Option<Vec<String>>,
+    /// 标签筛选语义开关：默认 `false` 保持「交集」（命中全部标签）；`true` 时改为并集（多选批量导出）。
+    pub tag_match_any: bool,
 }
 
 /// 列表排序字段（M2 新增，对应 `sortBy: updatedAt | rating | createdAt`）。

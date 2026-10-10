@@ -69,6 +69,7 @@ name = "ai"
 version = "0.1.0"
 dependencies = [
  "core",
+ "regex",
  "reqwest 0.12.28",
  "serde",
  "serde_json",
@@ -1863,6 +1864,7 @@ dependencies = [
  "export",
  "serde",
  "serde_json",
+ "storage",
  "sync",
  "tauri",
 ]

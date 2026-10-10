@@ -24,3 +24,7 @@ logs/
 # 工具链本地缓存（不入库）
 .trae/
 openspec/
+vendor_tmp/
+
+# 沙箱/本机调试临时配置（不入库）
+src-tauri/tauri.sandbox-override.json

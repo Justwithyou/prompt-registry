@@ -10,7 +10,7 @@ use prompt_core::{AiConfig, AppError};
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
-use crypto::{AI_API_KEY_USER, KeychainStore, SecretStore};
+use crypto::{KeychainStore, SecretStore, AI_API_KEY_USER};
 
 /// 配置文件固定名（位于应用数据目录）。
 const CONFIG_FILE: &str = "ai_config.json";
@@ -25,6 +25,9 @@ pub struct AiConfigView {
     pub temperature: f32,
     pub max_tokens: u32,
     pub timeout_secs: u64,
+    pub api_key_required: bool,
+    pub desensitize: bool,
+    pub sensitive_terms: Vec<String>,
     pub has_api_key: bool,
 }
 
@@ -37,6 +40,9 @@ impl From<AiConfig> for AiConfigView {
             temperature: c.temperature,
             max_tokens: c.max_tokens,
             timeout_secs: c.timeout_secs,
+            api_key_required: c.api_key_required,
+            desensitize: c.desensitize,
+            sensitive_terms: c.sensitive_terms,
             has_api_key: false,
         }
     }

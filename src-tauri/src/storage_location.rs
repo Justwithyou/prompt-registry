@@ -70,7 +70,9 @@ fn normalize_path(path: &Path) -> PathBuf {
 #[tauri::command]
 pub fn get_storage_location(app: AppHandle) -> Result<String, AppError> {
     let base = app.path().app_data_dir().map_err(path_err)?;
-    Ok(normalize_path(&load_dir(&base)).to_string_lossy().into_owned())
+    Ok(normalize_path(&load_dir(&base))
+        .to_string_lossy()
+        .into_owned())
 }
 
 /// 修改数据存储位置：校验并创建目录 → 复制当前库到新位置（保留旧库）→ 持久化配置 → 热切换。

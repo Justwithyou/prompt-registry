@@ -1,12 +1,19 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useVaultStore } from "../stores/vaultStore";
+import { CollapsibleSection } from "../../../shared/ui/CollapsibleSection";
 
 /**
  * 保险库（加密/口令）设置面板（settings/ui，M4-E3）。
  * 提供三种状态：未设置（设置主口令）、已锁定（解锁）、已解锁（锁定 + 修改口令），
  * 以及「开启自动解锁」开关。
  */
-export function VaultPanel() {
+export function VaultPanel({
+  open,
+  onToggle,
+}: {
+  open?: boolean;
+  onToggle?: () => void;
+}) {
   const isLocked = useVaultStore((s) => s.isLocked);
   const initialized = useVaultStore((s) => s.initialized);
   const autoUnlock = useVaultStore((s) => s.autoUnlock);
@@ -80,8 +87,7 @@ export function VaultPanel() {
   }
 
   return (
-    <section className="settings-section">
-      <h3>安全 · 数据加密</h3>
+    <CollapsibleSection title="安全 · 数据加密" open={open} onToggle={onToggle}>
 
       {!initialized ? (
         <form className="settings-stack" onSubmit={handleSetup}>
@@ -187,6 +193,6 @@ export function VaultPanel() {
 
       {error && <div className="settings-error">{error}</div>}
       {notice && <div className="settings-notice">{notice}</div>}
-    </section>
+    </CollapsibleSection>
   );
 }

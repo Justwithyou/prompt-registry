@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import type { Prompt } from "../../../entities/prompt/types";
 import { usePromptStore } from "../stores/promptStore";
 import { useCategoryStore } from "../../catalog/index";
-import { Icon } from "../../../shared/ui/Icon";
+import { RatingStars } from "../../../shared/ui/RatingStars";
 
 /** 截取纯文本摘要（去除常见 Markdown 标记）。 */
 function excerpt(source: string, max = 72): string {
@@ -52,8 +52,7 @@ export function PromptCard({ prompt }: { prompt: Prompt }) {
     e.stopPropagation();
   }
 
-  function handleRatingStar(e: MouseEvent, value: number) {
-    stop(e);
+  function handleRating(value: number) {
     void setPromptRelations(prompt.id, {
       rating: rating === value ? 0 : value,
     });
@@ -85,9 +84,7 @@ export function PromptCard({ prompt }: { prompt: Prompt }) {
         {categoryName && (
           <span className="prompt-card-category">{categoryName}</span>
         )}
-        <span className="prompt-card-rating" title={`评分 ${prompt.rating} / 5`}>
-          {rating > 0 ? "★".repeat(rating) : "未评分"}
-        </span>
+        <RatingStars value={rating} size={12} readOnly />
       </div>
 
       <p className="prompt-card-desc">
@@ -97,21 +94,7 @@ export function PromptCard({ prompt }: { prompt: Prompt }) {
       <div className="prompt-card-footer" onClick={stop}>
         <span className="prompt-card-time">{formatTime(prompt.updatedAt)}</span>
         <div className="prompt-card-actions">
-          <span className="quick-rating" title="点击星星评分">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button
-                key={n}
-                type="button"
-                className="quick-star"
-                onClick={(e) => handleRatingStar(e, n)}
-              >
-                <Icon
-                  name={n <= rating ? "star-filled" : "star"}
-                  size={12}
-                />
-              </button>
-            ))}
-          </span>
+          <RatingStars value={rating} size={16} onChange={handleRating} />
         </div>
       </div>
     </div>

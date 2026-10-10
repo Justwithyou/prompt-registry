@@ -68,6 +68,7 @@ export function SyncPanel() {
 
   return (
     <div className="settings-page">
+      <div className="settings-inner">
       <h2>同步</h2>
 
       <section className="settings-section">
@@ -163,6 +164,7 @@ export function SyncPanel() {
 
       {error && <div className="settings-error">{error}</div>}
       {notice && <div className="settings-notice">{notice}</div>}
+      </div>
     </div>
   );
 }

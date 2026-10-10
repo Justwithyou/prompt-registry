@@ -30,31 +30,32 @@ pub enum ExportSelector {
     /// 全部（CLI `list` 不带维度时）。
     All,
     Ids(Vec<String>),
-    Category(String),
+    Categories(Vec<String>),
     Tags(Vec<String>),
-    Project(String),
+    Projects(Vec<String>),
 }
 
 /// IPC 入参形式的选择器（前端传 camelCase JSON，缺省字段为空）。
 ///
-/// 优先级：`ids` > `categoryId` > `projectId` > `tagIds` > 全部。
+/// 优先级：`ids` > `categoryIds` > `projectIds` > `tagIds` > 全部。
+/// 分类 / 标签 / 项目均支持多选（并集导出），对应 M7 批量导出优化。
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct ExportSelectorInput {
     pub ids: Vec<String>,
-    pub category_id: Option<String>,
+    pub category_ids: Vec<String>,
     pub tag_ids: Vec<String>,
-    pub project_id: Option<String>,
+    pub project_ids: Vec<String>,
 }
 
 impl ExportSelectorInput {
     pub fn to_selector(&self) -> ExportSelector {
         if !self.ids.is_empty() {
             ExportSelector::Ids(self.ids.clone())
-        } else if let Some(c) = &self.category_id {
-            ExportSelector::Category(c.clone())
-        } else if let Some(p) = &self.project_id {
-            ExportSelector::Project(p.clone())
+        } else if !self.category_ids.is_empty() {
+            ExportSelector::Categories(self.category_ids.clone())
+        } else if !self.project_ids.is_empty() {
+            ExportSelector::Projects(self.project_ids.clone())
         } else if !self.tag_ids.is_empty() {
             ExportSelector::Tags(self.tag_ids.clone())
         } else {

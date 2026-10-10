@@ -5,6 +5,7 @@ import { useTagStore } from "../../tag-management/index";
 import { useProjectStore } from "../../project-management/index";
 import { tagDisplayName } from "../../../shared/lib/organization";
 import { Icon } from "../../../shared/ui/Icon";
+import { Select } from "../../../shared/ui/Select";
 
 /**
  * 批量操作工具栏（D4 / batch/ui）。
@@ -49,40 +50,26 @@ export function BatchToolbar() {
 
       <label className="batch-select">
         <Icon name="tag" size={14} />
-        <select
+        <Select
           value=""
-          onChange={(e) => {
-            if (e.target.value) handleBatch({ addTagIds: [e.target.value] });
+          placeholder="打标签…"
+          onChange={(value) => {
+            if (value) void handleBatch({ addTagIds: [value] });
           }}
-        >
-          <option value="" disabled>
-            打标签…
-          </option>
-          {tags.map((t) => (
-            <option key={t.id} value={t.id}>
-              {tagDisplayName(tags, t)}
-            </option>
-          ))}
-        </select>
+          options={tags.map((t) => ({ value: t.id, label: tagDisplayName(tags, t) }))}
+        />
       </label>
 
       <label className="batch-select">
         <Icon name="briefcase" size={14} />
-        <select
+        <Select
           value=""
-          onChange={(e) => {
-            if (e.target.value) handleBatch({ setProjectId: e.target.value });
+          placeholder="移动到项目…"
+          onChange={(value) => {
+            if (value) void handleBatch({ setProjectId: value });
           }}
-        >
-          <option value="" disabled>
-            移动到项目…
-          </option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+          options={projects.map((p) => ({ value: p.id, label: p.name }))}
+        />
       </label>
 
       <button

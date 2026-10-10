@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
+import { documentDir, join } from "@tauri-apps/api/path";
+import { open } from "@tauri-apps/plugin-dialog";
 import { Icon } from "../../../shared/ui/Icon";
+import { Select } from "../../../shared/ui/Select";
 import {
   exportPrompts,
   extractVariables,
@@ -25,7 +28,7 @@ interface ExportDialogProps {
 }
 
 const FORMAT_LABELS: Record<ExportFormat, string> = {
-  skill: "SKILL.md（Claude/编辑器 Skill）",
+  skill: "SKILL.md",
   markdown: "Markdown",
   json: "JSON",
 };
@@ -46,7 +49,7 @@ export function ExportDialog({
   const [format, setFormat] = useState<ExportFormat>("skill");
   const [outDir, setOutDir] = useState("prompt-exports");
   const [render, setRender] = useState(false);
-  const [scope, setScope] = useState("");
+  const [scopes, setScopes] = useState<string[]>([]);
 
   const [variables, setVariables] = useState<VariableDefinition[]>([]);
   const [values, setValues] = useState<Record<string, string>>({});
@@ -60,14 +63,50 @@ export function ExportDialog({
     if (content) void extractVariables(content).then(setVariables);
   }, [content]);
 
+  // 默认导出到系统「文档目录/prompt-exports」，而不是相对当前工作目录。
+  useEffect(() => {
+    void (async () => {
+      try {
+        const dir = await documentDir();
+        setOutDir(await join(dir, "prompt-exports"));
+      } catch {
+        /* 取默认目录失败时沿用占位默认值 */
+      }
+    })();
+  }, []);
+
+  // ESC 关闭弹窗。
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   const isSingle = !!ids && ids.length > 0;
+
+  async function browseDir() {
+    try {
+      const dir = await open({ directory: true, title: "选择导出目录" });
+      if (typeof dir === "string") setOutDir(dir);
+    } catch {
+      /* 取消或失败时忽略 */
+    }
+  }
+
+  function toggleScope(id: string) {
+    setScopes((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  }
 
   function buildSelector(): ExportSelectorInput {
     if (isSingle) return { ids: ids! };
-    if (!dimension || scope === "") return {};
-    if (dimension === "category") return { categoryId: scope };
-    if (dimension === "project") return { projectId: scope };
-    return { tagIds: [scope] };
+    if (!dimension || scopes.length === 0) return {};
+    if (dimension === "category") return { categoryIds: scopes };
+    if (dimension === "project") return { projectIds: scopes };
+    return { tagIds: scopes };
   }
 
   async function handleExport() {
@@ -111,42 +150,51 @@ export function ExportDialog({
         </p>
 
         {!isSingle && dimension && options.length > 0 && (
-          <label className="field" style={{ marginBottom: "0.75rem" }}>
-            <span className="field-label">导出范围</span>
-            <select value={scope} onChange={(e) => setScope(e.target.value)}>
-              <option value="">全部</option>
+          <div className="field" style={{ marginBottom: "0.75rem" }}>
+            <span className="field-label">
+              导出范围（可多选，未勾选时导出全部）
+            </span>
+            <div className="export-scope-list">
               {options.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                </option>
+                <label key={o.id} className="export-scope-item">
+                  <input
+                    type="checkbox"
+                    checked={scopes.includes(o.id)}
+                    onChange={() => toggleScope(o.id)}
+                  />
+                  <span>{o.name}</span>
+                </label>
               ))}
-            </select>
-          </label>
+            </div>
+          </div>
         )}
 
         <div className="export-form">
           <label className="field">
             <span className="field-label">导出格式</span>
-            <select
+            <Select
               value={format}
-              onChange={(e) => setFormat(e.target.value as ExportFormat)}
-            >
-              {(Object.keys(FORMAT_LABELS) as ExportFormat[]).map((f) => (
-                <option key={f} value={f}>
-                  {FORMAT_LABELS[f]}
-                </option>
-              ))}
-            </select>
-          </label>
-
-          <label className="field">
-            <span className="field-label">目标目录</span>
-            <input
-              value={outDir}
-              placeholder="例如 prompt-exports"
-              onChange={(e) => setOutDir(e.target.value)}
+              onChange={(value) => setFormat(value as ExportFormat)}
+              options={(Object.keys(FORMAT_LABELS) as ExportFormat[]).map((f) => ({
+                value: f,
+                label: FORMAT_LABELS[f],
+              }))}
             />
           </label>
+
+          <div className="field">
+            <span className="field-label">目标目录</span>
+            <div className="export-dir-row">
+              <input
+                value={outDir}
+                placeholder="例如 prompt-exports"
+                onChange={(e) => setOutDir(e.target.value)}
+              />
+              <button type="button" className="btn-ghost" onClick={browseDir}>
+                浏览…
+              </button>
+            </div>
+          </div>
         </div>
 
         <label className="field field-inline" style={{ margin: "0.75rem 0" }}>

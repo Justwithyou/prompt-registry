@@ -3,7 +3,10 @@ import type { Project } from "../../../entities/project/types";
 import { useProjectStore } from "../stores/projectStore";
 import { getPrompts } from "../../../shared/api/commands";
 import { Icon } from "../../../shared/ui/Icon";
+import { EmptyState } from "../../../shared/ui/EmptyState";
 import { ExportDialog } from "../../import-export/index";
+import { ConfirmDialog } from "../../../shared/ui/ConfirmDialog";
+import { toast } from "../../../shared/ui/toastStore";
 
 /**
  * 项目管理器（D2 / project-management/ui）。
@@ -22,6 +25,10 @@ export function ProjectManager() {
   const [description, setDescription] = useState("");
   const [color, setColor] = useState("#2f6fed");
   const [showExport, setShowExport] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const [counts, setCounts] = useState<Record<string, number>>({});
 
@@ -61,19 +68,28 @@ export function ProjectManager() {
     setColor(p.color ?? "#2f6fed");
   }
 
-  function submit() {
+  async function submit() {
     const trimmed = name.trim();
     if (!trimmed) return;
     if (editingId) {
-      updateProject(editingId, {
+      await updateProject(editingId, {
         name: trimmed,
         description: description || null,
         color,
       });
+      toast("已更新项目");
     } else {
-      createProject({ name: trimmed, description: description || null, color });
+      await createProject({ name: trimmed, description: description || null, color });
+      toast("已创建项目");
     }
     resetForm();
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    await deleteProject(deleteTarget.id);
+    toast("已删除项目");
+    setDeleteTarget(null);
   }
 
   return (
@@ -140,7 +156,16 @@ export function ProjectManager() {
 
       {projects.length === 0 ? (
         <div className="project-empty">
-          <div className="manager-empty">暂无项目，点击「新建项目」开始。</div>
+          <EmptyState
+            icon="briefcase"
+            title="还没有项目"
+            description="用项目隔离不同工作场景的提示词"
+            actionLabel="新建项目"
+            onAction={() => {
+              resetForm();
+              setCreating(true);
+            }}
+          />
         </div>
       ) : (
         <div className="project-grid">
@@ -165,7 +190,7 @@ export function ProjectManager() {
                     type="button"
                     className="icon-btn is-danger"
                     title="删除"
-                    onClick={() => deleteProject(project.id)}
+                    onClick={() => setDeleteTarget({ id: project.id, name: project.name })}
                   >
                     <Icon name="trash" size={14} />
                   </button>
@@ -190,6 +215,20 @@ export function ProjectManager() {
           onClose={() => setShowExport(false)}
         />
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="删除项目"
+        message={
+          <>
+            确定删除项目「<strong>{deleteTarget?.name ?? ""}</strong>」吗？
+          </>
+        }
+        confirmLabel="删除"
+        danger
+        onConfirm={() => void confirmDelete()}
+        onClose={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

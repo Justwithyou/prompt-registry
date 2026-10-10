@@ -84,4 +84,13 @@ impl Db {
         *conn = next;
         Ok(())
     }
+
+    /// 关闭当前连接并以密钥在 `path` 重开（含幂等迁移），用于解锁后把锁定占位库换回真实加密库。
+    pub fn reopen_with_key(&self, path: &Path, key: &[u8; 32]) -> Result<(), AppError> {
+        let mut conn = self.lock()?;
+        let mut next = Connection::open_with_key(path, key).map_err(db_err)?;
+        next.migrate().map_err(db_err)?;
+        *conn = next;
+        Ok(())
+    }
 }

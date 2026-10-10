@@ -21,7 +21,12 @@ fn main() {
     std::panic::set_hook(Box::new(|info| {
         let mut line = format!("PANIC: {}", info);
         if let Some(loc) = info.location() {
-            line.push_str(&format!(" @ {}:{}:{}", loc.file(), loc.line(), loc.column()));
+            line.push_str(&format!(
+                " @ {}:{}:{}",
+                loc.file(),
+                loc.line(),
+                loc.column()
+            ));
         }
         log_line(&line);
     }));

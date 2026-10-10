@@ -69,17 +69,46 @@ impl PromptRepository for SqlitePromptRepository {
             args.push(category_id.to_string());
         }
 
+        // 多分类并集：命中任意其一的分类即纳入（批量导出多选分类）。
+        if let Some(category_ids) = query.category_ids.as_ref().filter(|v| !v.is_empty()) {
+            let placeholders = category_ids
+                .iter()
+                .map(|_| "?")
+                .collect::<Vec<_>>()
+                .join(", ");
+            sql.push_str(&format!(" AND category_id IN ({placeholders})"));
+            args.extend(category_ids.iter().cloned());
+        }
+
         if let Some(project_id) = query.project_id.as_deref().filter(|s| !s.is_empty()) {
             sql.push_str(" AND id IN (SELECT prompt_id FROM prompt_projects WHERE project_id = ?)");
             args.push(project_id.to_string());
         }
 
+        // 多项目并集：命中任意其一的项目即纳入（批量导出多选项目）。
+        if let Some(project_ids) = query.project_ids.as_ref().filter(|v| !v.is_empty()) {
+            let placeholders = project_ids
+                .iter()
+                .map(|_| "?")
+                .collect::<Vec<_>>()
+                .join(", ");
+            sql.push_str(&format!(
+                " AND id IN (SELECT prompt_id FROM prompt_projects WHERE project_id IN ({placeholders}))"
+            ));
+            args.extend(project_ids.iter().cloned());
+        }
+
         if let Some(tag_ids) = query.tag_ids.as_ref().filter(|v| !v.is_empty()) {
             let placeholders = tag_ids.iter().map(|_| "?").collect::<Vec<_>>().join(", ");
+            // 默认交集（命中全部标签）；`tag_match_any` 为真时并集（多选批量导出）。
+            let having = if query.tag_match_any {
+                "COUNT(DISTINCT tag_id) >= 1".to_string()
+            } else {
+                format!("COUNT(DISTINCT tag_id) = {}", tag_ids.len())
+            };
             sql.push_str(&format!(
                 " AND id IN (SELECT prompt_id FROM prompt_tags WHERE tag_id IN ({placeholders}) \
-                 GROUP BY prompt_id HAVING COUNT(DISTINCT tag_id) = {})",
-                tag_ids.len()
+                 GROUP BY prompt_id HAVING {having})"
             ));
             args.extend(tag_ids.iter().cloned());
         }
@@ -101,10 +130,16 @@ impl PromptRepository for SqlitePromptRepository {
         }
 
         // 排序：置顶恒优先，再按 sort_by 倒序。
+        // 时间戳为 RFC3339（毫秒精度），「最近更新」按分钟粒度（substr 取到分钟），
+        // 同一分钟内再按创建时间倒序，避免毫秒差异导致顺序看似随机。
         sql.push_str(" ORDER BY is_pinned DESC");
         match query.sort_by.unwrap_or(PromptSortBy::UpdatedAt) {
-            PromptSortBy::UpdatedAt => sql.push_str(", updated_at DESC"),
-            PromptSortBy::Rating => sql.push_str(", rating DESC, updated_at DESC"),
+            PromptSortBy::UpdatedAt => {
+                sql.push_str(", substr(updated_at, 1, 16) DESC, created_at DESC")
+            }
+            PromptSortBy::Rating => {
+                sql.push_str(", rating DESC, substr(updated_at, 1, 16) DESC, created_at DESC")
+            }
             PromptSortBy::CreatedAt => sql.push_str(", created_at DESC"),
         }
 
@@ -419,7 +454,8 @@ impl PromptRepository for SqlitePromptRepository {
                 .prepare("SELECT project_id FROM prompt_projects WHERE prompt_id = ?1")
                 .map_err(db_err)?;
             let rows = stmt.query_map([id], |row| row.get(0)).map_err(db_err)?;
-            rows.map(|r| r.map_err(db_err)).collect::<Result<Vec<_>, _>>()?
+            rows.map(|r| r.map_err(db_err))
+                .collect::<Result<Vec<_>, _>>()?
         };
 
         let tag_ids: Vec<String> = {
@@ -427,7 +463,8 @@ impl PromptRepository for SqlitePromptRepository {
                 .prepare("SELECT tag_id FROM prompt_tags WHERE prompt_id = ?1")
                 .map_err(db_err)?;
             let rows = stmt.query_map([id], |row| row.get(0)).map_err(db_err)?;
-            rows.map(|r| r.map_err(db_err)).collect::<Result<Vec<_>, _>>()?
+            rows.map(|r| r.map_err(db_err))
+                .collect::<Result<Vec<_>, _>>()?
         };
 
         Ok(PromptRelations {

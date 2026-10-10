@@ -30,15 +30,20 @@ fn run() -> Result<(), String> {
     let cli = Cli::parse();
 
     let db = Db::open(cli.db.as_path()).map_err(|e| e.to_string())?;
-    let prompt_repo: Arc<dyn PromptRepository> =
-        Arc::new(SqlitePromptRepository::new(db.clone()));
+    let prompt_repo: Arc<dyn PromptRepository> = Arc::new(SqlitePromptRepository::new(db.clone()));
     let category_repo: Arc<dyn CategoryRepository> =
         Arc::new(SqliteCategoryRepository::new(db.clone()));
     let tag_repo: Arc<dyn TagRepository> = Arc::new(SqliteTagRepository::new(db.clone()));
     let project_repo: Arc<dyn ProjectRepository> =
         Arc::new(SqliteProjectRepository::new(db.clone()));
     let extractor: Arc<dyn TemplateExtractor> = Arc::new(RegexTemplateExtractor);
-    let svc = ExportService::new(prompt_repo, category_repo, tag_repo, project_repo, extractor);
+    let svc = ExportService::new(
+        prompt_repo,
+        category_repo,
+        tag_repo,
+        project_repo,
+        extractor,
+    );
 
     match cli.command {
         Commands::List {
@@ -106,9 +111,9 @@ fn selector_from(
     project: Option<String>,
 ) -> ExportSelector {
     if let Some(c) = category {
-        ExportSelector::Category(c)
+        ExportSelector::Categories(vec![c])
     } else if let Some(p) = project {
-        ExportSelector::Project(p)
+        ExportSelector::Projects(vec![p])
     } else if !tag.is_empty() {
         ExportSelector::Tags(tag)
     } else {

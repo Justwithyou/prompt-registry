@@ -9,4 +9,5 @@ export {
   lockVault,
   changePassword,
   isLocked,
+  setAutoUnlock,
 } from "../../../shared/api/commands";

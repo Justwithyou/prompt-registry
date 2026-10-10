@@ -1,6 +1,6 @@
 /**
  * 全局字体配置（shared/lib）。
- * 提供 5 种常用字体 + 本地字体导入（经 IndexedDB 持久化，FontFace 注册）。
+ * 提供 6 种常用字体 + 本地字体导入（经 IndexedDB 持久化，FontFace 注册）。
  */
 
 export const IMPORTED_FONT_FAMILY = "PromptHubLocalFont";
@@ -20,6 +20,7 @@ export const FONT_OPTIONS: FontOption[] = [
   },
   { key: "yahei", label: "微软雅黑", family: `"Microsoft YaHei", "微软雅黑", sans-serif` },
   { key: "simhei", label: "黑体", family: `"SimHei", "黑体", sans-serif` },
+  { key: "yuanti", label: "圆体", family: `"YouYuan", "Yuanti SC", "幼圆", sans-serif` },
   { key: "simsun", label: "宋体", family: `"SimSun", "宋体", serif` },
   { key: "kaiti", label: "楷体", family: `"KaiTi", "楷体", serif` },
   { key: "fangsong", label: "仿宋", family: `"FangSong", "仿宋", serif` },

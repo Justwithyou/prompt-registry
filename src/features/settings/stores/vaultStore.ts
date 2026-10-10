@@ -24,7 +24,7 @@ export interface VaultStore {
   unlock: (password: string) => Promise<void>;
   lock: () => Promise<void>;
   changePassword: (oldPw: string, newPw: string) => Promise<void>;
-  setAutoUnlock: (on: boolean) => void;
+  setAutoUnlock: (on: boolean) => Promise<void>;
 }
 
 const INITIALIZED_KEY = "prompt-manager.vault-initialized";
@@ -115,8 +115,14 @@ export const useVaultStore = create<VaultStore>()((set) => ({
     }
   },
 
-  setAutoUnlock(on) {
-    set({ autoUnlock: on });
-    localStorage.setItem(AUTO_UNLOCK_KEY, on ? "1" : "0");
+  async setAutoUnlock(on) {
+    try {
+      // 真实写入/清除 OS 钥匙串；失败时回滚（不更新本地偏好），错误交由面板展示。
+      await vaultApi.setAutoUnlock(on);
+      set({ autoUnlock: on });
+      localStorage.setItem(AUTO_UNLOCK_KEY, on ? "1" : "0");
+    } catch (e) {
+      set({ error: toError(e) });
+    }
   },
 }));

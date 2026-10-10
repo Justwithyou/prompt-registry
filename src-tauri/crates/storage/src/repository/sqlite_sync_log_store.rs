@@ -10,8 +10,8 @@
 use std::sync::MutexGuard;
 
 use prompt_core::{
-    AppError, Category, Project, Prompt, PromptVersion, SyncConfig, SyncConfigStore, SyncLogEntry,
-    SyncLogStore, Tag,
+    AppError, Category, Project, Prompt, PromptRelations, PromptVersion, SyncConfig,
+    SyncConfigStore, SyncLogEntry, SyncLogStore, Tag,
 };
 use rusqlite::{params, OptionalExtension, Row};
 use uuid::Uuid;
@@ -88,6 +88,7 @@ impl SqliteSyncLogStore {
             "project" => self.apply_project(entry),
             "tag" => self.apply_tag(entry),
             "version" => self.apply_version(entry),
+            "prompt_relations" => self.apply_prompt_relations(entry),
             other => Err(sync_err(format!("未知实体类型: {other}"))),
         }
     }
@@ -273,6 +274,60 @@ impl SqliteSyncLogStore {
                 ],
             )
             .map_err(db_err)?;
+        Ok(())
+    }
+
+    /// 落地提示词的组织关系快照（项目 / 标签多对多），整组替换远端关系表。
+    ///
+    /// 关系归属是快照语义：以最新一条快照为准覆盖旧关系；prompt 尚未落地时跳过，
+    /// 避免产生孤儿关系（prompt 实体同步到位后再由后续快照补齐）。
+    fn apply_prompt_relations(&self, entry: &SyncLogEntry) -> Result<(), AppError> {
+        let rel: PromptRelations = serde_json::from_str(&entry.payload)
+            .map_err(|e| sync_err(format!("prompt_relations payload 反序列化失败: {e}")))?;
+        let mut conn = self.lock()?;
+        let tx = conn.inner_mut().transaction().map_err(db_err)?;
+
+        let exists: bool = tx
+            .query_row(
+                "SELECT 1 FROM prompts WHERE id = ?1 AND deleted_at IS NULL",
+                params![entry.entity_id],
+                |_| Ok(()),
+            )
+            .optional()
+            .map_err(db_err)?
+            .is_some();
+        if !exists {
+            tx.commit().map_err(db_err)?;
+            return Ok(());
+        }
+
+        tx.execute(
+            "DELETE FROM prompt_projects WHERE prompt_id = ?1",
+            params![entry.entity_id],
+        )
+        .map_err(db_err)?;
+        for project_id in &rel.project_ids {
+            tx.execute(
+                "INSERT OR IGNORE INTO prompt_projects (prompt_id, project_id) VALUES (?1, ?2)",
+                params![entry.entity_id, project_id],
+            )
+            .map_err(db_err)?;
+        }
+
+        tx.execute(
+            "DELETE FROM prompt_tags WHERE prompt_id = ?1",
+            params![entry.entity_id],
+        )
+        .map_err(db_err)?;
+        for tag_id in &rel.tag_ids {
+            tx.execute(
+                "INSERT OR IGNORE INTO prompt_tags (prompt_id, tag_id) VALUES (?1, ?2)",
+                params![entry.entity_id, tag_id],
+            )
+            .map_err(db_err)?;
+        }
+
+        tx.commit().map_err(db_err)?;
         Ok(())
     }
 }

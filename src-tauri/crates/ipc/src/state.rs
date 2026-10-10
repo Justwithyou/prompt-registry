@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use prompt_core::{
@@ -27,6 +28,10 @@ pub struct AppState {
     pub sync_config_store: Arc<dyn SyncConfigStore>,
     /// 同步引擎（`SyncEngine` 实现，来自 sync crate；M4-C 后已装配，不再为 None）。
     pub sync_engine: Arc<dyn SyncEngine>,
+    /// 数据库文件路径（解锁后把锁定占位库重开为真实加密库）。
+    pub db_path: PathBuf,
+    /// 解锁信封持久化路径（`vault.json`，存盐 / nonce / 密文）。
+    pub vault_file: PathBuf,
 }
 
 impl AppState {

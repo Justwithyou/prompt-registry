@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { usePromptStore } from "../stores/promptStore";
+import { useSettingsStore } from "../../settings/stores/settingsStore";
 import { Icon } from "../../../shared/ui/Icon";
+import { EmptyState } from "../../../shared/ui/EmptyState";
+import { toast } from "../../../shared/ui/toastStore";
 import type { PromptDraft } from "../../../shared/api/commands";
 import { AiGenerateDialog } from "../../ai-assistant/index";
 import { PromptList } from "./PromptList";
@@ -31,6 +34,7 @@ export function PromptLibraryPage({ batchToolbar }: { batchToolbar?: ReactNode }
   const createPrompt = usePromptStore((s) => s.createPrompt);
   const fetchPrompts = usePromptStore((s) => s.fetchPrompts);
   const navigate = useNavigate();
+  const aiEnabled = useSettingsStore((s) => s.aiEnabled);
 
   const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
   const [aiOpen, setAiOpen] = useState(false);
@@ -41,7 +45,7 @@ export function PromptLibraryPage({ batchToolbar }: { batchToolbar?: ReactNode }
 
   async function handleCreate() {
     const created = await createPrompt({ title: "未命名提示词", content: "" });
-    navigate(`/prompts/${created.id}`);
+    navigate(`/prompts/${created.id}?new=1`);
   }
 
   async function handleAcceptDraft(draft: PromptDraft) {
@@ -51,12 +55,20 @@ export function PromptLibraryPage({ batchToolbar }: { batchToolbar?: ReactNode }
       description: draft.description || null,
     });
     setAiOpen(false);
-    navigate(`/prompts/${created.id}`);
+    navigate(`/prompts/${created.id}?new=1`);
   }
 
   function switchView(mode: ViewMode) {
     setViewMode(mode);
     localStorage.setItem(VIEW_KEY, mode);
+  }
+
+  function handleAiGenerate() {
+    if (!aiEnabled) {
+      toast("AI 辅助未开启，请到「设置 → AI 辅助」开启", "info");
+      return;
+    }
+    setAiOpen(true);
   }
 
   return (
@@ -100,7 +112,7 @@ export function PromptLibraryPage({ batchToolbar }: { batchToolbar?: ReactNode }
           批量
         </button>
 
-        <button type="button" className="btn-ghost" onClick={() => setAiOpen(true)}>
+        <button type="button" className="btn-ghost" onClick={handleAiGenerate}>
           <Icon name="sparkles" size={16} />
           AI 生成
         </button>
@@ -118,13 +130,21 @@ export function PromptLibraryPage({ batchToolbar }: { batchToolbar?: ReactNode }
       {viewMode === "grid" ? (
         <div className="prompt-grid">
           {prompts.length === 0 ? (
-            <div className="prompt-list-empty">暂无提示词。</div>
+            <div className="prompt-grid-empty">
+              <EmptyState
+                icon="file-text"
+                title="还没有提示词"
+                description="创建第一条提示词，随时整理、检索和调用"
+                actionLabel="新建提示词"
+                onAction={handleCreate}
+              />
+            </div>
           ) : (
             prompts.map((p) => <PromptCard key={p.id} prompt={p} />)
           )}
         </div>
       ) : (
-        <PromptList prompts={prompts} />
+        <PromptList prompts={prompts} onCreate={handleCreate} />
       )}
 
       {aiOpen && (

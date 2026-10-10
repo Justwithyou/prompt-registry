@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTagStore } from "../stores/tagStore";
 import { getPrompts } from "../../../shared/api/commands";
+import { EmptyState } from "../../../shared/ui/EmptyState";
 
 /**
  * 标签云（D1 / tag-management/ui）。
@@ -14,7 +15,7 @@ function weight(count: number): { fontSize: number; opacity: number } {
   return { fontSize: 12 + t * 2, opacity: 0.55 + t * 0.09 };
 }
 
-export function TagCloud() {
+export function TagCloud({ onCreate }: { onCreate?: () => void }) {
   const tags = useTagStore((s) => s.tags);
   const [counts, setCounts] = useState<Record<string, number>>({});
 
@@ -37,7 +38,13 @@ export function TagCloud() {
   return (
     <div className="tag-cloud">
       {tags.length === 0 ? (
-        <div className="manager-empty">暂无标签。</div>
+        <EmptyState
+          icon="tag"
+          title="还没有标签"
+          description="用标签给提示词打上跨分类的标记"
+          actionLabel="新建标签"
+          onAction={onCreate}
+        />
       ) : (
         tags.map((tag) => {
           const w = weight(counts[tag.id] ?? 0);

@@ -59,15 +59,20 @@ impl Provider for OpenAiCompatibleProvider {
             ],
         });
 
-        let resp = self
+        // 本地模型（如 Ollama / LM Studio）允许空 Key：仅当 Key 非空才附加鉴权头。
+        let req = self
             .client
             .post(&url)
-            .timeout(Duration::from_secs(cfg.timeout_secs.max(1)))
-            .bearer_auth(api_key)
+            .timeout(Duration::from_secs(cfg.timeout_secs.max(1)));
+        let req = if api_key.trim().is_empty() {
+            req
+        } else {
+            req.bearer_auth(api_key)
+        };
+        let resp = req
             .json(&body)
             .send()
             .map_err(|e| ai_err(format!("请求模型失败: {e}")))?;
-
         let status = resp.status();
         if !status.is_success() {
             let text = resp.text().unwrap_or_default();

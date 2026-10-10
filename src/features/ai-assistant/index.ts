@@ -3,3 +3,4 @@
  * 内部结构：components/ hooks/ stores/ api/ types/
  */
 export { AiGenerateDialog } from "./ui/AiGenerateDialog";
+export { AiRewriteDialog } from "./ui/AiRewriteDialog";

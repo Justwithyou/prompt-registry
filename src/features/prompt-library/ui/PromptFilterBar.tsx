@@ -9,6 +9,7 @@ import {
   type CategoryNode,
 } from "../../../shared/lib/organization";
 import { Icon } from "../../../shared/ui/Icon";
+import { Select } from "../../../shared/ui/Select";
 
 /** 把分类树拍平成带缩进的选项列表。 */
 function flattenCategories(nodes: CategoryNode[], depth: number): { id: string; label: string }[] {
@@ -55,103 +56,87 @@ export function PromptFilterBar() {
 
   return (
     <div className="filter-bar">
-      <div className="filter-search">
-        <Icon name="search" size={14} className="filter-search-icon" />
-        <input
-          type="text"
-          value={filters.keyword ?? ""}
-          placeholder="关键词…"
-          onChange={(e) =>
-            void setFilters({ keyword: e.target.value || undefined })
-          }
-        />
+      <div className="filter-row">
+        <span className="filter-row-label">筛选</span>
+        <div className="filter-row-items">
+          <Select
+            className="filter-select"
+            value={filters.categoryId ?? ""}
+            onChange={(value) => void setFilters({ categoryId: value || undefined })}
+            options={[
+              { value: "", label: "全部分类" },
+              ...catOptions.map((o) => ({ value: o.id, label: o.label })),
+            ]}
+          />
+
+          <Select
+            className="filter-select"
+            value={filters.projectId ?? ""}
+            onChange={(value) => void setFilters({ projectId: value || undefined })}
+            options={[
+              { value: "", label: "全部项目" },
+              ...projects.map((p) => ({ value: p.id, label: p.name })),
+            ]}
+          />
+
+          <div className="filter-tags">
+            {tags.map((t) => {
+              const active = activeTagIds.includes(t.id);
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  className={`chip${active ? " is-active" : ""}`}
+                  title={tagDisplayName(tags, t)}
+                  onClick={() => toggleTag(t.id)}
+                >
+                  <span
+                    className="tag-dot"
+                    style={{ background: t.color ?? "var(--accent)" }}
+                  />
+                  {t.name}
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            type="button"
+            className={`chip${filters.isFavorite ? " is-active" : ""}`}
+            onClick={() => void setFilters({ isFavorite: filters.isFavorite ? undefined : true })}
+          >
+            <Icon name="star" size={14} />
+            仅看收藏
+          </button>
+          <button
+            type="button"
+            className={`chip${filters.isPinned ? " is-active" : ""}`}
+            onClick={() => void setFilters({ isPinned: filters.isPinned ? undefined : true })}
+          >
+            <Icon name="pin" size={14} />
+            仅看置顶
+          </button>
+        </div>
       </div>
 
-      <select
-        className="filter-select"
-        value={filters.categoryId ?? ""}
-        onChange={(e) => void setFilters({ categoryId: e.target.value || undefined })}
-      >
-        <option value="">全部分类</option>
-        {catOptions.map((o) => (
-          <option key={o.id} value={o.id}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-
-      <select
-        className="filter-select"
-        value={filters.projectId ?? ""}
-        onChange={(e) => void setFilters({ projectId: e.target.value || undefined })}
-      >
-        <option value="">全部项目</option>
-        {projects.map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name}
-          </option>
-        ))}
-      </select>
-
-      <div className="filter-tags">
-        {tags.map((t) => {
-          const active = activeTagIds.includes(t.id);
-          return (
-            <button
-              key={t.id}
-              type="button"
-              className={`chip${active ? " is-active" : ""}`}
-              title={tagDisplayName(tags, t)}
-              onClick={() => toggleTag(t.id)}
-            >
-              <span
-                className="tag-dot"
-                style={{ background: t.color ?? "var(--accent)" }}
-              />
-              {t.name}
-            </button>
-          );
-        })}
+      <div className="filter-row">
+        <span className="filter-row-label">排序</span>
+        <div className="filter-row-items">
+          <Select
+            className="filter-select"
+            value={filters.sortBy ?? "updatedAt"}
+            onChange={(value) =>
+              void setFilters({
+                sortBy: value as "updatedAt" | "rating" | "createdAt",
+              })
+            }
+            options={SORT_OPTIONS}
+          />
+        </div>
+        <button type="button" className="btn-ghost btn-sm" onClick={() => void resetFilters()}>
+          重置
+        </button>
       </div>
-
-      <span className="filter-divider" />
-
-      <button
-        type="button"
-        className={`chip${filters.isFavorite ? " is-active" : ""}`}
-        onClick={() => void setFilters({ isFavorite: filters.isFavorite ? undefined : true })}
-      >
-        <Icon name="star" size={14} />
-        仅看收藏
-      </button>
-      <button
-        type="button"
-        className={`chip${filters.isPinned ? " is-active" : ""}`}
-        onClick={() => void setFilters({ isPinned: filters.isPinned ? undefined : true })}
-      >
-        <Icon name="pin" size={14} />
-        仅看置顶
-      </button>
-
-      <select
-        className="filter-select filter-sort"
-        value={filters.sortBy ?? "updatedAt"}
-        onChange={(e) =>
-          void setFilters({
-            sortBy: e.target.value as "updatedAt" | "rating" | "createdAt",
-          })
-        }
-      >
-        {SORT_OPTIONS.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-
-      <button type="button" className="btn-ghost btn-sm" onClick={() => void resetFilters()}>
-        重置
-      </button>
     </div>
   );
 }

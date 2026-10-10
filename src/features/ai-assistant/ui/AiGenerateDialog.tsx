@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Icon } from "../../../shared/ui/Icon";
+import { useEscapeKey } from "../../../shared/hooks/useEscapeKey";
 import {
   aiGeneratePrompt,
   getAiConfig,
@@ -18,6 +19,8 @@ interface AiGenerateDialogProps {
  * 草稿不落库；生成会示意内容将发送到已配置的 baseUrl 端点。
  */
 export function AiGenerateDialog({ onClose, onAccept }: AiGenerateDialogProps) {
+  useEscapeKey(onClose);
+
   const [requirement, setRequirement] = useState("");
   const [tone, setTone] = useState("");
   const [audience, setAudience] = useState("");

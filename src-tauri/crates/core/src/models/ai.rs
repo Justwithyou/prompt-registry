@@ -8,7 +8,7 @@ use super::template::VariableDefinition;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AiConfig {
-    /// 提供商标识（`openai` / `deepseek` / 其他 OpenAI 兼容服务）。
+    /// 提供商标识（`openai` / `deepseek` / `ollama` / `lmstudio` / 其他 OpenAI 兼容服务）。
     pub provider: String,
     /// 服务根地址（末尾斜杠不敏感，请求时追加 `/chat/completions`）。
     pub base_url: String,
@@ -17,6 +17,19 @@ pub struct AiConfig {
     pub temperature: f32,
     pub max_tokens: u32,
     pub timeout_secs: u64,
+    /// 是否要求 API Key（本地模型预设为 false，允许留空 Key 跳鉴权）。
+    #[serde(default = "default_true")]
+    pub api_key_required: bool,
+    /// 是否开启脱敏（发送到远端前替换敏感内容，回网后还原）。
+    #[serde(default)]
+    pub desensitize: bool,
+    /// 用户自定义敏感词（精确替换，与内置正则规则叠加）。
+    #[serde(default)]
+    pub sensitive_terms: Vec<String>,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl Default for AiConfig {
@@ -28,6 +41,9 @@ impl Default for AiConfig {
             temperature: 0.7,
             max_tokens: 2048,
             timeout_secs: 60,
+            api_key_required: true,
+            desensitize: false,
+            sensitive_terms: Vec::new(),
         }
     }
 }

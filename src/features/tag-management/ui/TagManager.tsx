@@ -3,8 +3,12 @@ import type { Tag } from "../../../entities/tag/types";
 import { useTagStore } from "../stores/tagStore";
 import { tagDisplayName } from "../../../shared/lib/organization";
 import { Icon } from "../../../shared/ui/Icon";
+import { Select } from "../../../shared/ui/Select";
+import { EmptyState } from "../../../shared/ui/EmptyState";
 import { ExportDialog } from "../../import-export/index";
 import { TagCloud } from "./TagCloud";
+import { ConfirmDialog } from "../../../shared/ui/ConfirmDialog";
+import { toast } from "../../../shared/ui/toastStore";
 
 /**
  * 标签管理器（D1 / tag-management/ui）。
@@ -28,6 +32,10 @@ export function TagManager() {
   const [parentId, setParentId] = useState<string>("");
   const [color, setColor] = useState<string>(PALETTE[0]);
   const [showExport, setShowExport] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const sorted = useMemo(
     () => [...tags].sort((a, b) => tagDisplayName(tags, a).localeCompare(tagDisplayName(tags, b), "zh")),
@@ -50,19 +58,28 @@ export function TagManager() {
     setColor(tag.color ?? PALETTE[0]);
   }
 
-  function submit() {
+  async function submit() {
     const trimmed = name.trim();
     if (!trimmed) return;
     if (editingId) {
-      updateTag(editingId, {
+      await updateTag(editingId, {
         name: trimmed,
         parentId: parentId || null,
         color: color || null,
       });
+      toast("已更新标签");
     } else {
-      createTag({ name: trimmed, parentId: parentId || null, color: color || null });
+      await createTag({ name: trimmed, parentId: parentId || null, color: color || null });
+      toast("已创建标签");
     }
     resetForm();
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    await deleteTag(deleteTarget.id);
+    toast("已删除标签");
+    setDeleteTarget(null);
   }
 
   const curParents = tags;
@@ -128,18 +145,15 @@ export function TagManager() {
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submit()}
           />
-          <select
+          <Select
             className="tag-form-parent"
             value={parentId}
-            onChange={(e) => setParentId(e.target.value)}
-          >
-            <option value="">无父级（根标签）</option>
-            {curParents.map((t) => (
-              <option key={t.id} value={t.id}>
-                {tagDisplayName(tags, t)}
-              </option>
-            ))}
-          </select>
+            onChange={setParentId}
+            options={[
+              { value: "", label: "无父级（根标签）" },
+              ...curParents.map((t) => ({ value: t.id, label: tagDisplayName(tags, t) })),
+            ]}
+          />
           <input
             className="tag-form-color"
             type="color"
@@ -156,11 +170,25 @@ export function TagManager() {
       ) : null}
 
       {view === "cloud" ? (
-        <TagCloud />
+        <TagCloud
+          onCreate={() => {
+            resetForm();
+            setCreating(true);
+          }}
+        />
       ) : (
         <div className="tag-list">
           {sorted.length === 0 ? (
-            <div className="manager-empty">暂无标签。</div>
+            <EmptyState
+              icon="tag"
+              title="还没有标签"
+              description="用标签给提示词打上跨分类的标记"
+              actionLabel="新建标签"
+              onAction={() => {
+                resetForm();
+                setCreating(true);
+              }}
+            />
           ) : (
             sorted.map((tag) => (
               <div key={tag.id} className="tag-row">
@@ -181,7 +209,9 @@ export function TagManager() {
                     type="button"
                     className="icon-btn is-danger"
                     title="删除"
-                    onClick={() => deleteTag(tag.id)}
+                    onClick={() =>
+                      setDeleteTarget({ id: tag.id, name: tagDisplayName(tags, tag) })
+                    }
                   >
                     <Icon name="trash" size={14} />
                   </button>
@@ -200,6 +230,20 @@ export function TagManager() {
           onClose={() => setShowExport(false)}
         />
       )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="删除标签"
+        message={
+          <>
+            确定删除标签「<strong>{deleteTarget?.name ?? ""}</strong>」吗？
+          </>
+        }
+        confirmLabel="删除"
+        danger
+        onConfirm={() => void confirmDelete()}
+        onClose={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

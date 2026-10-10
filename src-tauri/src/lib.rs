@@ -1,12 +1,14 @@
+use std::path::Path;
 use std::sync::Arc;
 
 use prompt_core::{
-    CategoryRepository, ProjectRepository, PromptRepository, SyncCipher, SyncConfigStore,
-    SyncEngine, SyncLogStore, TagRepository, TemplateExtractor, VaultProvider, VersionRepository,
+    AppError, CategoryRepository, ProjectRepository, PromptRepository, SyncCipher, SyncConfigStore,
+    SyncEngine, SyncLogStore, TagRepository, TemplateExtractor, VaultEnvelope, VaultProvider,
+    VersionRepository,
 };
 use tauri::Manager;
 
-use crypto::{AesGcmCipher, CryptoVault};
+use crypto::{AesGcmCipher, CryptoVault, KeychainStore};
 use ipc::AppState;
 use storage::{
     Db, SqliteCategoryRepository, SqliteProjectRepository, SqlitePromptRepository,
@@ -40,6 +42,19 @@ fn assemble_sync(db: &Db) -> Result<SyncAssembly, prompt_core::AppError> {
     Ok((log_store, config_store, engine))
 }
 
+/// 读取持久化的解锁信封（`vault.json`）；文件不存在时返回 `None`。
+fn read_envelope(path: &Path) -> Result<Option<VaultEnvelope>, AppError> {
+    match std::fs::read_to_string(path) {
+        Ok(text) => {
+            let envelope =
+                serde_json::from_str(&text).map_err(|e| AppError::Crypto(e.to_string()))?;
+            Ok(Some(envelope))
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
+        Err(e) => Err(AppError::Io(e.to_string())),
+    }
+}
+
 /// 应用初始化入口（对应架构方案 4.3）。
 ///
 /// M2 装配：在应用数据目录打开（或创建）明文 SQLite 数据库 `prompt.db`，
@@ -55,8 +70,29 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             let data_dir = storage_location::load_dir(&base_dir);
             std::fs::create_dir_all(&data_dir)?;
             let db_path = data_dir.join("prompt.db");
+            let vault_file = data_dir.join("vault.json");
 
-            let db = Db::open(&db_path)?;
+            // M4 装配收尾（遗留 #2/#3）：注入 OS 钥匙串、恢复持久化解锁信封并尝试自动解锁，
+            // 再按「是否已设置口令 / 是否已解锁」三态打开数据库。
+            let vault_concrete = CryptoVault::with_secret_store(Box::new(KeychainStore::new()?));
+            if let Some(envelope) = read_envelope(&vault_file)? {
+                vault_concrete.restore_envelope(envelope)?;
+            }
+            // 钥匙串中若存有 Master Key（用户开启过自动解锁），无需口令即可载入；
+            // 无钥匙串 / 无条目 / 长度异常时不阻断启动，交由下方三态判定。
+            let _ = vault_concrete.auto_unlock();
+
+            let db = if vault_concrete.export_envelope().is_none() {
+                // 从未设置口令：明文打开（setup_vault 时再就地加密）。
+                Db::open(&db_path)?
+            } else {
+                match vault_concrete.master_key() {
+                    // 已解锁（含自动解锁）：以 Master Key 打开加密库。
+                    Ok(key) => Db::open_with_key(&db_path, Some(&key))?,
+                    // 已设置口令但未解锁：先挂内存占位库，unlock_vault 时重开真实加密库。
+                    Err(_) => Db::open_in_memory()?,
+                }
+            };
             // 让存储位置命令通过 State<Db> 取到同一共享连接，实现运行时热切换。
             app.manage(db.clone());
             let prompt_repo: Arc<dyn PromptRepository> =
@@ -69,9 +105,8 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             let version_repo: Arc<dyn VersionRepository> =
                 Arc::new(SqliteVersionRepository::new(db.clone()));
             let template_extractor: Arc<dyn TemplateExtractor> = Arc::new(RegexTemplateExtractor);
-            // M4 装配：密钥保险库（Argon2id + Master Key，先不含 OS 钥匙串自动解锁），
             // 同步变更日志 + 配置仓库 + 引擎完整装配（M4-C 闭环）。
-            let vault: Arc<dyn VaultProvider> = Arc::new(CryptoVault::new());
+            let vault: Arc<dyn VaultProvider> = Arc::new(vault_concrete);
             let (sync_log_store, sync_config_store, sync_engine) = assemble_sync(&db)?;
 
             app.manage(AppState {
@@ -85,6 +120,8 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
                 sync_log_store,
                 sync_config_store,
                 sync_engine,
+                db_path,
+                vault_file,
             });
             Ok(())
         })
@@ -119,6 +156,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             ipc::commands::vault::lock_vault,
             ipc::commands::vault::change_password,
             ipc::commands::vault::is_locked,
+            ipc::commands::vault::set_auto_unlock,
             ipc::commands::sync::configure_sync,
             ipc::commands::sync::sync_now,
             ipc::commands::sync::get_sync_status,
@@ -129,10 +167,13 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
             storage_location::set_storage_location,
             data_transfer::export_data,
             data_transfer::import_data,
+            data_transfer::import_db,
             ai_config::get_ai_config,
             ai_config::set_ai_config,
             ai_commands::set_ai_api_key,
             ai_commands::ai_generate_prompt,
+            ai_commands::ai_polish_prompt,
+            ai_commands::ai_extract_variables,
         ])
         .run(tauri::generate_context!())
         .map_err(Into::into)
@@ -141,11 +182,25 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
     use tauri::test::{get_ipc_response, mock_builder, mock_context, noop_assets, INVOKE_KEY};
 
-    /// 构造一个注入了共享内存数据库六个能力、并注册提示词 + 模板 + 版本命令的 mock 应用。
+    /// 为每次 `mock_app()` 生成唯一临时目录的递增序号，避免多测试串扰。
+    static MOCK_SEQ: AtomicU64 = AtomicU64::new(0);
+
+    /// 构造一个注入了共享数据库六个能力、并注册提示词 + 模板 + 版本 + 保险库命令的 mock 应用。
+    /// 数据库落临时目录文件（而非内存），使 `setup_vault` / `unlock_vault` 的 rekey / reopen 真实可用。
     fn mock_app() -> tauri::App<tauri::test::MockRuntime> {
-        let db = Db::open_in_memory().expect("打开内存数据库失败");
+        let dir = std::env::temp_dir().join(format!(
+            "prompt-manager-mock-{}-{}",
+            std::process::id(),
+            MOCK_SEQ.fetch_add(1, Ordering::Relaxed),
+        ));
+        std::fs::create_dir_all(&dir).expect("创建 mock 临时目录失败");
+        let db_path = dir.join("prompt.db");
+        let vault_file = dir.join("vault.json");
+
+        let db = Db::open(&db_path).expect("打开 mock 数据库失败");
         let prompt_repo: Arc<dyn PromptRepository> =
             Arc::new(SqlitePromptRepository::new(db.clone()));
         let project_repo: Arc<dyn ProjectRepository> =
@@ -161,6 +216,7 @@ mod tests {
             assemble_sync(&db).expect("装配同步能力失败");
 
         mock_builder()
+            .manage(db.clone())
             .manage(AppState {
                 prompt_repo,
                 project_repo,
@@ -172,6 +228,8 @@ mod tests {
                 sync_log_store,
                 sync_config_store,
                 sync_engine,
+                db_path,
+                vault_file,
             })
             .invoke_handler(tauri::generate_handler![
                 ipc::commands::prompt::get_prompts,

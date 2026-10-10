@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { usePromptStore } from "../../prompt-library/index";
 import { useCategoryStore } from "../../catalog/index";
 import { useTagStore } from "../../tag-management/index";
 import { useProjectStore } from "../../project-management/index";
+import { useSettingsStore } from "../../settings/stores/settingsStore";
 import type { PromptRelations } from "../../../entities/prompt/types";
 import { CopyButton } from "../../search/index";
 import { useDebouncedCallback } from "../hooks/useDebouncedCallback";
@@ -12,7 +13,10 @@ import { renderMarkdown } from "../lib/markdown";
 import { buildCategoryTree, type CategoryNode } from "../../../shared/lib/organization";
 import { MetadataPanel, type CategoryOption } from "./MetadataPanel";
 import { ExportDialog } from "../../import-export/index";
+import { AiRewriteDialog } from "../../ai-assistant/index";
 import { Icon } from "../../../shared/ui/Icon";
+import { toast } from "../../../shared/ui/toastStore";
+import { useEscapeKey } from "../../../shared/hooks/useEscapeKey";
 
 interface Draft {
   title: string;
@@ -54,6 +58,9 @@ export function PromptEditorPage({
 }: PromptEditorPageProps) {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  // 新增态：从提示词库「新建 / AI 生成」跳转时带 new=1，按钮显示「保存」；否则为编辑态显示「更新」。
+  const isNew = searchParams.get("new") === "1";
   const prompts = usePromptStore((s) => s.prompts);
   const isLoading = usePromptStore((s) => s.isLoading);
   const fetchPrompts = usePromptStore((s) => s.fetchPrompts);
@@ -64,6 +71,7 @@ export function PromptEditorPage({
   const categories = useCategoryStore((s) => s.categories);
   const tags = useTagStore((s) => s.tags);
   const projects = useProjectStore((s) => s.projects);
+  const aiEnabled = useSettingsStore((s) => s.aiEnabled);
 
   const source = id ? prompts.find((p) => p.id === id) : undefined;
 
@@ -138,6 +146,12 @@ export function PromptEditorPage({
     "template" | "version" | null
   >(null);
   const [showExport, setShowExport] = useState(false);
+  const [aiRewrite, setAiRewrite] = useState<"polish" | "extract" | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [metaCollapsed, setMetaCollapsed] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEscapeKey(() => setActivePanel(null), activePanel !== null);
 
   const autosave = useDebouncedCallback((snapshot: Draft) => {
     if (!id) return;
@@ -178,12 +192,44 @@ export function PromptEditorPage({
     if (id) void updatePrompt(id, patch);
   }
 
+  async function handleSave() {
+    if (!id) return;
+    setSaving(true);
+    try {
+      await updatePrompt(id, {
+        title: d.title,
+        content: d.content,
+        description: d.description || null,
+        category: d.category || null,
+        isPinned: d.isPinned,
+        isFavorite: d.isFavorite,
+        rating: d.rating,
+      });
+      toast("已保存");
+      if (isNew) {
+        setSearchParams({}, { replace: true });
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function handleDelete() {
     if (!confirming) {
       setConfirming(true);
       return;
     }
     if (id) void deletePrompt(id).then(() => navigate("/prompts"));
+  }
+
+  function handleAiAction(kind: "polish" | "extract") {
+    if (!aiEnabled) {
+      toast("AI 辅助未开启，请到「设置 → AI 辅助」开启", "info");
+      setMenuOpen(false);
+      return;
+    }
+    setAiRewrite(kind);
+    setMenuOpen(false);
   }
 
   const projectId = relations.projectIds[0] ?? "";
@@ -224,32 +270,82 @@ export function PromptEditorPage({
         <div className="editor-actions">
           <button
             type="button"
-            className={`btn-ghost${activePanel === "template" ? " is-active" : ""}`}
-            onClick={() =>
-              setActivePanel(activePanel === "template" ? null : "template")
-            }
+            className="btn-primary"
+            onClick={handleSave}
+            disabled={saving || !id}
           >
-            <Icon name="braces" size={16} />
-            模板
+            <Icon name="check" size={16} />
+            {saving ? "保存中…" : isNew ? "保存" : "更新"}
           </button>
-          <button
-            type="button"
-            className={`btn-ghost${activePanel === "version" ? " is-active" : ""}`}
-            onClick={() =>
-              setActivePanel(activePanel === "version" ? null : "version")
-            }
-          >
-            <Icon name="history" size={16} />
-            版本
-          </button>
-          <button
-            type="button"
-            className="btn-ghost"
-            onClick={() => setShowExport(true)}
-          >
-            <Icon name="download" size={16} />
-            导出
-          </button>
+          <div className="more-menu-wrap">
+            <button
+              type="button"
+              className={`btn-ghost${menuOpen ? " is-active" : ""}`}
+              onClick={() => setMenuOpen((v) => !v)}
+            >
+              更多
+              <Icon name="chevron-down" size={14} />
+            </button>
+            {menuOpen && (
+              <>
+                <div
+                  className="more-menu-backdrop"
+                  onClick={() => setMenuOpen(false)}
+                />
+                <div className="more-menu">
+                  <button
+                    type="button"
+                    className="more-menu-item"
+                    onClick={() => handleAiAction("polish")}
+                  >
+                    <Icon name="sparkles" size={16} />
+                    AI 调优
+                  </button>
+                  <button
+                    type="button"
+                    className="more-menu-item"
+                    onClick={() => handleAiAction("extract")}
+                  >
+                    <Icon name="braces" size={16} />
+                    提取变量
+                  </button>
+                  <button
+                    type="button"
+                    className={`more-menu-item${activePanel === "template" ? " is-active" : ""}`}
+                    onClick={() => {
+                      setActivePanel(activePanel === "template" ? null : "template");
+                      setMenuOpen(false);
+                    }}
+                  >
+                    <Icon name="braces" size={16} />
+                    模板
+                  </button>
+                  <button
+                    type="button"
+                    className={`more-menu-item${activePanel === "version" ? " is-active" : ""}`}
+                    onClick={() => {
+                      setActivePanel(activePanel === "version" ? null : "version");
+                      setMenuOpen(false);
+                    }}
+                  >
+                    <Icon name="history" size={16} />
+                    版本
+                  </button>
+                  <button
+                    type="button"
+                    className="more-menu-item"
+                    onClick={() => {
+                      setShowExport(true);
+                      setMenuOpen(false);
+                    }}
+                  >
+                    <Icon name="download" size={16} />
+                    导出
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
           <CopyButton text={d.content} />
           <button
             type="button"
@@ -282,26 +378,39 @@ export function PromptEditorPage({
           </div>
         </section>
 
-        <aside className="editor-meta">
-          <MetadataPanel
-            categoryId={relations.categoryId}
-            categoryOptions={categoryOptions}
-            onCategoryChange={handleCategoryChange}
-            projectId={projectId}
-            projects={projects}
-            onProjectChange={handleProjectChange}
-            tags={tags}
-            selectedTagIds={relations.tagIds}
-            onToggleTag={handleToggleTag}
-            description={d.description}
-            isPinned={d.isPinned}
-            isFavorite={d.isFavorite}
-            rating={d.rating}
-            onDescriptionChange={(v) => patchText({ description: v })}
-            onPinnedChange={(v) => patchMeta({ isPinned: v })}
-            onFavoriteChange={(v) => patchMeta({ isFavorite: v })}
-            onRatingChange={(v) => patchMeta({ rating: v })}
-          />
+        <aside className={`editor-meta${metaCollapsed ? " is-collapsed" : ""}`}>
+          <div className="editor-meta-header">
+            {!metaCollapsed && <span className="editor-meta-title">属性</span>}
+            <button
+              type="button"
+              className="meta-toggle"
+              title={metaCollapsed ? "展开元数据面板" : "收起元数据面板"}
+              onClick={() => setMetaCollapsed((v) => !v)}
+            >
+              <Icon name={metaCollapsed ? "chevron-left" : "chevron-right"} size={16} />
+            </button>
+          </div>
+          {!metaCollapsed && (
+            <MetadataPanel
+              categoryId={relations.categoryId}
+              categoryOptions={categoryOptions}
+              onCategoryChange={handleCategoryChange}
+              projectId={projectId}
+              projects={projects}
+              onProjectChange={handleProjectChange}
+              tags={tags}
+              selectedTagIds={relations.tagIds}
+              onToggleTag={handleToggleTag}
+              description={d.description}
+              isPinned={d.isPinned}
+              isFavorite={d.isFavorite}
+              rating={d.rating}
+              onDescriptionChange={(v) => patchText({ description: v })}
+              onPinnedChange={(v) => patchMeta({ isPinned: v })}
+              onFavoriteChange={(v) => patchMeta({ isFavorite: v })}
+              onRatingChange={(v) => patchMeta({ rating: v })}
+            />
+          )}
         </aside>
       </div>
 
@@ -330,6 +439,18 @@ export function PromptEditorPage({
           ids={id ? [id] : []}
           content={d.content}
           onClose={() => setShowExport(false)}
+        />
+      )}
+
+      {aiRewrite && (
+        <AiRewriteDialog
+          mode={aiRewrite}
+          content={d.content}
+          onClose={() => setAiRewrite(null)}
+          onApply={(newContent) => {
+            patchText({ content: newContent });
+            setAiRewrite(null);
+          }}
         />
       )}
     </div>

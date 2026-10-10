@@ -19,22 +19,24 @@ export interface SettingsStore {
   sidebarCollapsed: boolean;
   fontKey: string;
   importedFontName: string | null;
+  aiEnabled: boolean;
   setTheme: (theme: Theme) => void;
-  toggleTheme: () => void;
   setStorageLocation: (path: string) => void;
   toggleSidebar: () => void;
   setFontKey: (key: string) => void;
   setImportedFont: (name: string) => void;
+  toggleAiEnabled: () => void;
 }
 
 const THEME_KEY = "prompt-manager.theme";
 const SIDEBAR_KEY = "prompt-manager.sidebar-collapsed";
 const FONT_KEY = "prompt-manager.font-key";
 const IMPORTED_FONT_NAME_KEY = "prompt-manager.imported-font-name";
+const AI_ENABLED_KEY = "prompt-manager.ai-enabled";
 
 function initialTheme(): Theme {
   const saved = localStorage.getItem(THEME_KEY);
-  return saved === "light" || saved === "dark" ? saved : "dark";
+  return saved === "light" || saved === "dark" || saved === "system" ? saved : "system";
 }
 
 function initialSidebarCollapsed(): boolean {
@@ -46,6 +48,10 @@ function initialFontKey(): string {
   return saved ?? DEFAULT_FONT_KEY;
 }
 
+function initialAiEnabled(): boolean {
+  return localStorage.getItem(AI_ENABLED_KEY) === "1";
+}
+
 export const useSettingsStore = create<SettingsStore>()((set, get) => ({
   theme: initialTheme(),
   storageLocation: "",
@@ -53,14 +59,11 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => ({
   sidebarCollapsed: initialSidebarCollapsed(),
   fontKey: initialFontKey(),
   importedFontName: localStorage.getItem(IMPORTED_FONT_NAME_KEY),
+  aiEnabled: initialAiEnabled(),
 
   setTheme(theme) {
     set({ theme });
     localStorage.setItem(THEME_KEY, theme);
-  },
-
-  toggleTheme() {
-    get().setTheme(get().theme === "dark" ? "light" : "dark");
   },
 
   setStorageLocation(path) {
@@ -82,5 +85,11 @@ export const useSettingsStore = create<SettingsStore>()((set, get) => ({
     set({ fontKey: IMPORTED_FONT_KEY, importedFontName: name });
     localStorage.setItem(FONT_KEY, IMPORTED_FONT_KEY);
     localStorage.setItem(IMPORTED_FONT_NAME_KEY, name);
+  },
+
+  toggleAiEnabled() {
+    const enabled = !get().aiEnabled;
+    set({ aiEnabled: enabled });
+    localStorage.setItem(AI_ENABLED_KEY, enabled ? "1" : "0");
   },
 }));

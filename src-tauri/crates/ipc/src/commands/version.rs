@@ -32,5 +32,14 @@ pub fn rollback_prompt_version(
     prompt_id: String,
     version_id: String,
 ) -> Result<Prompt, AppError> {
-    state.version_repo.rollback(&prompt_id, &version_id)
+    let prompt = state.version_repo.rollback(&prompt_id, &version_id)?;
+    // 正文已变 → 记录 prompt 更新。
+    crate::sync_hook::record_json(&state, "prompt", &prompt.id, "update", &prompt);
+    // 回滚会追加一条新历史版本 → 记录到同步日志（追加式，跨设备可传播）。
+    if let Ok(versions) = state.version_repo.list(&prompt_id) {
+        if let Some(latest) = versions.first() {
+            crate::sync_hook::record_json(&state, "version", &latest.id, "create", latest);
+        }
+    }
+    Ok(prompt)
 }

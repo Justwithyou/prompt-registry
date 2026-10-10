@@ -68,6 +68,10 @@ pub fn set_prompt_relations(
 ) -> Result<Prompt, AppError> {
     let prompt = state.prompt_repo.set_relations(&id, &relations)?;
     crate::sync_hook::record_json(&state, "prompt", &prompt.id, "update", &prompt);
+    // 项目/标签多对多关系不在 prompt 主实体内，单独以「关系快照」实体同步。
+    if let Ok(rel) = state.prompt_repo.get_relations(&id) {
+        crate::sync_hook::record_json(&state, "prompt_relations", &id, "update", &rel);
+    }
     Ok(prompt)
 }
 
@@ -87,5 +91,18 @@ pub fn batch_update_prompts(
     ids: Vec<String>,
     batch: BatchUpdateInput,
 ) -> Result<(), AppError> {
-    state.prompt_repo.batch_update(&ids, &batch)
+    state.prompt_repo.batch_update(&ids, &batch)?;
+    if batch.delete {
+        for id in &ids {
+            crate::sync_hook::record_delete(&state, "prompt", id);
+        }
+    } else {
+        // 打标签 / 移动项目只改关系表，按「关系快照」实体同步。
+        for id in &ids {
+            if let Ok(rel) = state.prompt_repo.get_relations(id) {
+                crate::sync_hook::record_json(&state, "prompt_relations", id, "update", &rel);
+            }
+        }
+    }
+    Ok(())
 }

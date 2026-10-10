@@ -1,6 +1,8 @@
 import type { Project } from "../../../entities/project/types";
 import type { Tag } from "../../../entities/tag/types";
 import { tagDisplayName } from "../../../shared/lib/organization";
+import { RatingStars } from "../../../shared/ui/RatingStars";
+import { Select } from "../../../shared/ui/Select";
 
 /** 分类下拉选项（label 含层级缩进）。 */
 export interface CategoryOption {
@@ -52,42 +54,30 @@ export function MetadataPanel({
   onFavoriteChange,
   onRatingChange,
 }: MetadataPanelProps) {
-  function handleRating(value: string) {
-    const n = Number(value);
-    if (Number.isNaN(n)) return;
-    onRatingChange(Math.max(0, Math.min(5, Math.round(n))));
-  }
-
   return (
     <div className="metadata-panel">
       <label className="field">
         <span className="field-label">分类</span>
-        <select
+        <Select
           value={categoryId}
-          onChange={(e) => onCategoryChange(e.target.value)}
-        >
-          <option value="">未分类</option>
-          {categoryOptions.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+          onChange={onCategoryChange}
+          options={[
+            { value: "", label: "未分类" },
+            ...categoryOptions.map((o) => ({ value: o.id, label: o.label })),
+          ]}
+        />
       </label>
 
       <label className="field">
         <span className="field-label">项目</span>
-        <select
+        <Select
           value={projectId}
-          onChange={(e) => onProjectChange(e.target.value)}
-        >
-          <option value="">未指定项目</option>
-          {projects.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+          onChange={onProjectChange}
+          options={[
+            { value: "", label: "未指定项目" },
+            ...projects.map((p) => ({ value: p.id, label: p.name })),
+          ]}
+        />
       </label>
 
       <div className="field">
@@ -146,17 +136,14 @@ export function MetadataPanel({
         <span>收藏</span>
       </label>
 
-      <label className="field">
-        <span className="field-label">评分（0-5）</span>
-        <input
-          type="number"
-          min={0}
-          max={5}
-          step={1}
+      <div className="field">
+        <span className="field-label">评分</span>
+        <RatingStars
           value={rating}
-          onChange={(e) => handleRating(e.target.value)}
+          size={20}
+          onChange={(n) => onRatingChange(rating === n ? 0 : n)}
         />
-      </label>
+      </div>
     </div>
   );
 }

@@ -8,7 +8,7 @@ use std::sync::Mutex;
 use aes_gcm::aead::{Aead, KeyInit};
 use aes_gcm::{Aes256Gcm, Nonce};
 use argon2::{Algorithm, Argon2, Params, Version};
-use prompt_core::{AppError, VaultProvider};
+use prompt_core::{AppError, VaultEnvelope, VaultProvider};
 use rand::rngs::OsRng;
 use rand::RngCore;
 
@@ -247,5 +247,48 @@ impl VaultProvider for CryptoVault {
         state
             .master_key
             .ok_or_else(|| AppError::Crypto("保险库已锁定".to_string()))
+    }
+
+    fn export_envelope(&self) -> Option<VaultEnvelope> {
+        let state = self.state.lock().ok()?;
+        state.envelope.as_ref().map(|e| VaultEnvelope {
+            kek_salt: e.kek_salt.to_vec(),
+            nonce: e.nonce.to_vec(),
+            ciphertext: e.ciphertext.clone(),
+        })
+    }
+
+    fn restore_envelope(&self, envelope: VaultEnvelope) -> Result<(), AppError> {
+        let mut state = self.state.lock().map_err(|_| lock_poisoned())?;
+        if state.envelope.is_some() {
+            return Ok(());
+        }
+        let kek_salt: [u8; SALT_LEN] = envelope
+            .kek_salt
+            .try_into()
+            .map_err(|_| AppError::Crypto("信封盐长度异常".to_string()))?;
+        let nonce: [u8; NONCE_LEN] = envelope
+            .nonce
+            .try_into()
+            .map_err(|_| AppError::Crypto("信封 nonce 长度异常".to_string()))?;
+        state.envelope = Some(Envelope {
+            kek_salt,
+            nonce,
+            ciphertext: envelope.ciphertext,
+        });
+        Ok(())
+    }
+
+    fn set_auto_unlock(&self, enabled: bool) -> Result<(), AppError> {
+        let store = self
+            .secret_store
+            .as_ref()
+            .ok_or_else(|| AppError::Crypto("未配置 OS 钥匙串".to_string()))?;
+        if enabled {
+            let key = self.master_key()?;
+            store.set(&key)
+        } else {
+            store.delete()
+        }
     }
 }

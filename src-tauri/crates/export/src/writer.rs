@@ -35,7 +35,9 @@ pub fn serialize(item: &ExportItem, format: ExportFormat) -> String {
     match format {
         ExportFormat::Skill => skill_md(item),
         ExportFormat::Markdown => markdown(item),
-        ExportFormat::Json => serde_json::to_string_pretty(item).unwrap_or_else(|_| "{}".to_string()),
+        ExportFormat::Json => {
+            serde_json::to_string_pretty(item).unwrap_or_else(|_| "{}".to_string())
+        }
     }
 }
 
@@ -44,7 +46,8 @@ fn variables_table(vars: &[VariableDefinition]) -> Option<String> {
     if vars.is_empty() {
         return None;
     }
-    let mut t = String::from("## 变量\n\n| 变量 | 默认值 | 可选值 | 说明 |\n| --- | --- | --- | --- |\n");
+    let mut t =
+        String::from("## 变量\n\n| 变量 | 默认值 | 可选值 | 说明 |\n| --- | --- | --- | --- |\n");
     for v in vars {
         let default = v.default_value.as_deref().unwrap_or("-").replace("\n", " ");
         let options = match &v.options {
@@ -52,7 +55,10 @@ fn variables_table(vars: &[VariableDefinition]) -> Option<String> {
             _ => "-".to_string(),
         };
         let desc = v.description.as_deref().unwrap_or("-").replace("\n", " ");
-        t.push_str(&format!("| {} | {} | {} | {} |\n", v.name, default, options, desc));
+        t.push_str(&format!(
+            "| {} | {} | {} | {} |\n",
+            v.name, default, options, desc
+        ));
     }
     Some(t)
 }
@@ -83,7 +89,10 @@ fn skill_md(item: &ExportItem) -> String {
     s.push_str(&format!("description: {}\n", yaml_quote(&desc)));
 
     if !item.category_path.is_empty() {
-        s.push_str(&format!("category: {}\n", yaml_quote(&item.category_path.join("/"))));
+        s.push_str(&format!(
+            "category: {}\n",
+            yaml_quote(&item.category_path.join("/"))
+        ));
     }
     if !item.tags.is_empty() {
         s.push_str(&format!("tags: [{}]\n", yaml_list(&item.tags)));
@@ -162,7 +171,8 @@ mod tests {
 
     #[test]
     fn json_is_valid() {
-        let v: serde_json::Value = serde_json::from_str(&serialize(&item(), ExportFormat::Json)).unwrap();
+        let v: serde_json::Value =
+            serde_json::from_str(&serialize(&item(), ExportFormat::Json)).unwrap();
         assert_eq!(v["title"], "周报模板");
     }
 

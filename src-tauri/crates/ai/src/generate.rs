@@ -1,6 +1,6 @@
 //! 「AI 生成提示词」编排：系统提示词构造 + 结构化解析（含降级）+ 变量提取。
 
-use prompt_core::{AiConfig, AppError, PromptDraft};
+use prompt_core::{AiConfig, AppError, PromptDraft, VariableDefinition};
 use serde::Deserialize;
 
 use crate::provider::Provider;
@@ -17,17 +17,20 @@ pub struct GenerateOptions {
 /// 模型返回的结构化 JSON 中间表示。
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct DraftJson {
+pub(crate) struct DraftJson {
     #[serde(default)]
-    title: String,
+    pub(crate) title: String,
     #[serde(default)]
-    content: String,
+    pub(crate) content: String,
     #[serde(default)]
-    description: String,
+    pub(crate) description: String,
     #[serde(default)]
-    suggested_tags: Vec<String>,
+    pub(crate) suggested_tags: Vec<String>,
     #[serde(default)]
-    suggested_category: Option<String>,
+    pub(crate) suggested_category: Option<String>,
+    /// 模型自报的变量定义（可选；后端以正文实际占位为准做合并）。
+    #[serde(default)]
+    pub(crate) variables: Vec<VariableDefinition>,
 }
 
 /// 生成结构化提示词草稿（不落库，返回给前端预览）。
@@ -66,7 +69,9 @@ fn build_system_prompt(opts: &GenerateOptions) -> String {
         s.push_str(&format!("面向对象：{}。", aud.trim()));
     }
     if use_variables {
-        s.push_str("若提示词中有需要参数化的输入，用 `{{变量名}}` 占位（变量名用中文或英文均可）。");
+        s.push_str(
+            "若提示词中有需要参数化的输入，用 `{{变量名}}` 占位（变量名用中文或英文均可）。",
+        );
     }
     s.push_str(
         "只输出一个 JSON 对象，不要输出任何解释、Markdown 代码块标记或前后缀，字段如下：\
@@ -78,7 +83,7 @@ fn build_system_prompt(opts: &GenerateOptions) -> String {
 }
 
 /// 解析模型返回文本：优先直接 JSON；否则提取首个 `{...}` 块；再失败则整段当作正文兜底。
-fn parse_draft(raw: &str) -> DraftJson {
+pub(crate) fn parse_draft(raw: &str) -> DraftJson {
     let trimmed = raw.trim();
     if let Ok(d) = serde_json::from_str::<DraftJson>(trimmed) {
         return d;
@@ -91,10 +96,7 @@ fn parse_draft(raw: &str) -> DraftJson {
         }
     }
     DraftJson {
-        title: String::new(),
         content: trimmed.to_string(),
-        description: String::new(),
-        suggested_tags: Vec::new(),
-        suggested_category: None,
+        ..DraftJson::default()
     }
 }

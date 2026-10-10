@@ -6,6 +6,7 @@ pub mod prompt;
 pub mod sync;
 pub mod tag;
 pub mod template;
+pub mod vault;
 pub mod version;
 
 pub use ai::{AiConfig, PromptDraft};
@@ -19,4 +20,5 @@ pub use prompt::{
 pub use sync::{SyncConfig, SyncLogEntry, SyncResult, SyncStatus};
 pub use tag::{CreateTagInput, Tag, UpdateTagInput};
 pub use template::VariableDefinition;
+pub use vault::VaultEnvelope;
 pub use version::PromptVersion;

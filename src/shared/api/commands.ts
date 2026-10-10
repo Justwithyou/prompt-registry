@@ -392,6 +392,11 @@ export async function isLocked(): Promise<boolean> {
   return invoke<boolean>("is_locked");
 }
 
+/** 控制 OS 钥匙串自动解锁：true 写入 Master Key（需已解锁），false 清除 */
+export async function setAutoUnlock(enabled: boolean): Promise<void> {
+  return invoke<void>("set_auto_unlock", { enabled });
+}
+
 /** 配置 WebDAV 同步目标 */
 export async function configureSync(config: SyncConfig): Promise<void> {
   return invoke<void>("configure_sync", { config });
@@ -420,17 +425,18 @@ export type ExportFormat = "skill" | "markdown" | "json";
 
 /**
  * 导出选择器入参（对应 Rust `ExportSelectorInput`）。
- * 优先级：`ids` > `categoryId` > `projectId` > `tagIds` > 全部。
+ * 优先级：`ids` > `categoryIds` > `projectIds` > `tagIds` > 全部。
+ * 分类 / 标签 / 项目均支持多选（并集导出）。
  */
 export interface ExportSelectorInput {
   /** 按提示词 ID 导出（单条/多条）。 */
   ids?: string[];
-  /** 按分类导出。 */
-  categoryId?: string | null;
-  /** 按标签导出。 */
+  /** 按分类导出（可多选）。 */
+  categoryIds?: string[];
+  /** 按标签导出（可多选）。 */
   tagIds?: string[];
-  /** 按项目导出。 */
-  projectId?: string | null;
+  /** 按项目导出（可多选）。 */
+  projectIds?: string[];
 }
 
 /** 渲染单条模板提示词为成品（变量未被填值时保留 `{{name}}` 占位）。 */
@@ -511,6 +517,17 @@ export async function importData(
   return invoke<ImportReport>("import_data", { path, overwrite });
 }
 
+/**
+ * 从平台 `.db` 数据库存储文件直接导入（明文库直接读；加密库用已解锁主密钥打开）。
+ * @param overwrite true=覆盖清空后导入，false=追加合并（跳过已有）。
+ */
+export async function importDb(
+  path: string,
+  overwrite: boolean,
+): Promise<ImportReport> {
+  return invoke<ImportReport>("import_db", { path, overwrite });
+}
+
 // ===== AI 辅助命令（对应《AI 辅助生成提示词设计方案》§5.2）=====
 
 /** AI 提供商配置（非敏感项，入参不含 API Key）。 */
@@ -521,6 +538,9 @@ export interface AiConfig {
   temperature: number;
   maxTokens: number;
   timeoutSecs: number;
+  apiKeyRequired: boolean;
+  desensitize: boolean;
+  sensitiveTerms: string[];
 }
 
 /** AI 配置读回视图（额外含「是否已配置 Key」布尔，绝不含 Key 明文）。 */
@@ -533,6 +553,12 @@ export interface GenerateOptions {
   tone?: string;
   audience?: string;
   useVariables?: boolean;
+}
+
+/** 「AI 调优」选项（均可选）。 */
+export interface PolishOptions {
+  style?: string;
+  instruction?: string;
 }
 
 /** AI 生成的结构化提示词草稿（不落库，由用户审阅后保存）。 */
@@ -566,4 +592,17 @@ export async function aiGeneratePrompt(
   options?: GenerateOptions,
 ): Promise<PromptDraft> {
   return invoke<PromptDraft>("ai_generate_prompt", { requirement, options });
+}
+
+/** 对既有提示词正文做调优改写，返回草稿。 */
+export async function aiPolishPrompt(
+  content: string,
+  options?: PolishOptions,
+): Promise<PromptDraft> {
+  return invoke<PromptDraft>("ai_polish_prompt", { content, options });
+}
+
+/** 把提示词正文参数化改写为含 `{{变量}}` 占位的版本。 */
+export async function aiExtractVariables(content: string): Promise<PromptDraft> {
+  return invoke<PromptDraft>("ai_extract_variables", { content });
 }

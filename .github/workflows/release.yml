@@ -51,7 +51,7 @@ jobs:
       - name: Install OpenSSL (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
-        run: choco install openssl --no-progress -y
+        run: choco install openssl --version=3.5.4 --no-progress -y
 
       - name: Configure OpenSSL (Windows)
         if: matrix.os == 'windows-latest'

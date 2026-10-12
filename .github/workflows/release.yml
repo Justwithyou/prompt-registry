@@ -94,9 +94,6 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OPENSSL_LIB_DIR: ${{ env.OPENSSL_LIB_DIR }}
-          OPENSSL_INCLUDE_DIR: ${{ env.OPENSSL_INCLUDE_DIR }}
-          OPENSSL_DIR: ${{ env.OPENSSL_DIR }}
         with:
           tagName: ${{ github.ref_name }}
           releaseName: prompt-registry ${{ github.ref_name }}

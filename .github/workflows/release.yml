@@ -54,8 +54,11 @@ jobs:
         run: |
           $ErrorActionPreference = 'Stop'
           $exe = Join-Path $env:RUNNER_TEMP 'Win64OpenSSL-3_5_9.exe'
-          Invoke-WebRequest -Uri 'https://slproweb.com/download/Win64OpenSSL-3_5_9.exe' -OutFile $exe -TimeoutSec 120
-          Start-Process -FilePath $exe -ArgumentList '/silent','/verysilent','/sp-','/suppressmsgboxes' -Wait
+          Invoke-WebRequest -Uri 'https://slproweb.com/download/Win64OpenSSL-3_5_9.exe' -OutFile $exe -TimeoutSec 300
+          $p = Start-Process -FilePath $exe -ArgumentList '/VERYSILENT','/NORESTART' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "OpenSSL 静默安装失败，exit code $($p.ExitCode)" }
+          if (-not (Test-Path 'C:\Program Files\OpenSSL-Win64\include\openssl\crypto.h')) { throw '安装后未找到 crypto.h' }
+          if (-not (Test-Path 'C:\Program Files\OpenSSL-Win64\lib\VC\x64\MD\libcrypto.lib')) { throw '安装后未找到 libcrypto.lib' }
 
       - name: Configure OpenSSL (Windows)
         if: matrix.os == 'windows-latest'

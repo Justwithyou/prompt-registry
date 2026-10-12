@@ -75,6 +75,7 @@ jobs:
       # ---- 版本一致性校验：tag 必须与 tauri.conf.json、CLI crate 完全一致 ----
 
       - name: Verify version consistency
+        if: github.event_name == 'push'
         shell: bash
         run: |
           TAG="${GITHUB_REF_NAME#v}"

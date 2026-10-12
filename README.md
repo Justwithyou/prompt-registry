@@ -149,18 +149,6 @@ prompt-hub/
 
 ---
 
-## 📚 文档
-
-- [`docs/功能需求.md`](docs/功能需求.md) — 产品规划与功能实现状态
-- [`docs/架构设计.md`](docs/架构设计.md) — 技术架构设计
-- [`docs/详细设计与排期.md`](docs/详细设计与排期.md) — 详细设计与开发排期
-- [`docs/导入导出设计.md`](docs/导入导出设计.md)、[`docs/AI辅助生成设计.md`](docs/AI辅助生成设计.md)、[`docs/AI进阶能力设计.md`](docs/AI进阶能力设计.md)、[`docs/CLI与Skills设计.md`](docs/CLI与Skills设计.md) — 各能力模块设计
-- [`docs/M0任务清单.md`](docs/M0任务清单.md)～[`docs/M5任务清单.md`](docs/M5任务清单.md) — 里程碑任务清单
-- [`坚果云同步手册.md`](坚果云同步手册.md) — 坚果云 WebDAV 同步配置
-- [`CLI与Skills使用手册.md`](CLI与Skills使用手册.md) — CLI 与 SKILL.md 使用说明
-
----
-
 ## 🤝 开发
 
 提交前请通过质量门禁（格式化 → 编译 → 测试 → 类型检查）：
@@ -182,6 +170,25 @@ npx tsc --noEmit                      # 项目根目录
 | `m1-tag` 〜 `m5-tag` | M1（MVP）〜 M5（打磨/打包）各里程碑 |
 
 完整标签见 [Tags](https://github.com/Justwithyou/prompt-registry/tags)。
+
+---
+
+## 🗺 优化方向
+
+### 1. 静态链接 OpenSSL
+
+- **现状**：SQLCipher 底层依赖 OpenSSL，当前为**动态链接**（「方案 A」），运行时要求 `libcrypto-3-x64.dll` 与可执行文件同目录（安装包 / 便携版 / CLI zip 已内置该 DLL）。
+- **方向**：切换为**静态链接**（vendored / 静态库），使主程序与 CLI 变成「单文件、零外部依赖」。
+- **收益**：无需附带 DLL、消除「找不到 libcrypto-3-x64.dll」场景，分发与 CI 更简洁。
+
+### 2. CLI 分发增加包管理器
+
+- **现状**：CLI 当前仅通过 GitHub Releases 下载 zip（Windows 附带 DLL）。
+- **方向**：接入主流包管理器，实现一键安装与升级：
+  - Windows：`scoop` / `winget`
+  - macOS：`homebrew`
+  - 通用：`crates.io`（`cargo install prompt-cli`）
+- **收益**：用户无需手动下载 zip 并维护 DLL 同目录；版本升级交给包管理器自动完成。
 
 ## 📄 License
 

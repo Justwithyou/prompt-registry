@@ -4,6 +4,7 @@ dist/
 target/
 src-tauri/target/
 src-tauri/gen/
+release/
 
 # 日志
 *.log

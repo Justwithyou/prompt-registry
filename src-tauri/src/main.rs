@@ -31,7 +31,7 @@ fn main() {
         log_line(&line);
     }));
 
-    match prompt_manager_lib::run() {
+    match prompt_registry_lib::run() {
         Ok(()) => {
             // 正常退出：应用窗口被关闭（事件循环正常结束）。
             log_line("RUN_OK: app event loop exited normally");

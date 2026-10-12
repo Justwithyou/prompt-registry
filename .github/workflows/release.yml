@@ -1,0 +1,130 @@
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: build (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            cli_bin: prompt-cli.exe
+            cli_archive: prompt-cli-windows-x64
+          - os: macos-latest
+            cli_bin: prompt-cli
+            cli_archive: prompt-cli-macos
+          - os: ubuntu-latest
+            cli_bin: prompt-cli
+            cli_archive: prompt-cli-linux-x64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # ---- OpenSSL：SQLCipher 底层依赖，按 OS 分支安装并写入环境变量 ----
+
+      - name: Install OpenSSL (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: choco install openssl --no-progress -y
+
+      - name: Configure OpenSSL (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          Add-Content -Path $env:GITHUB_ENV -Value "OPENSSL_LIB_DIR=C:\Program Files\OpenSSL-Win64\lib\VC\x64\MD"
+          Add-Content -Path $env:GITHUB_ENV -Value "OPENSSL_INCLUDE_DIR=C:\Program Files\OpenSSL-Win64\include"
+
+      - name: Install OpenSSL (macOS)
+        if: matrix.os == 'macos-latest'
+        run: |
+          brew install openssl@3
+          echo "OPENSSL_DIR=$(brew --prefix openssl@3)" >> "$GITHUB_ENV"
+
+      - name: Install Linux system deps
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      # ---- 版本一致性校验：tag 必须与 tauri.conf.json、CLI crate 完全一致 ----
+
+      - name: Verify version consistency
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          MANIFEST="$(node -p "require('./src-tauri/tauri.conf.json').version")"
+          CLI="$(sed -n 's/^version = "\(.*\)"/\1/p' src-tauri/crates/cli/Cargo.toml | head -1)"
+          echo "tag=$TAG manifest=$MANIFEST cli=$CLI"
+          [ "$TAG" = "$MANIFEST" ] || { echo "::error::tag($TAG) != tauri.conf.json($MANIFEST)"; exit 1; }
+          [ "$TAG" = "$CLI" ] || { echo "::error::tag($TAG) != cli/Cargo.toml($CLI)"; exit 1; }
+
+      - name: Install frontend deps
+        run: pnpm install --frozen-lockfile
+
+      # ---- 桌面安装包（tauri-action 按 tauri.conf.json 自动命名并上传）----
+
+      - name: Build desktop bundles
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OPENSSL_LIB_DIR: ${{ env.OPENSSL_LIB_DIR }}
+          OPENSSL_INCLUDE_DIR: ${{ env.OPENSSL_INCLUDE_DIR }}
+          OPENSSL_DIR: ${{ env.OPENSSL_DIR }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: prompt-registry ${{ github.ref_name }}
+          releaseDraft: true
+
+      # ---- CLI 二进制（Windows 附带 libcrypto-3-x64.dll 打成 zip）----
+
+      - name: Build CLI
+        run: cargo build -p prompt-cli --release
+        working-directory: src-tauri
+
+      - name: Package CLI (Windows)
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        working-directory: src-tauri
+        run: |
+          New-Item -ItemType Directory -Force -Path release | Out-Null
+          Compress-Archive -Path "target/release/prompt-cli.exe","libcrypto-3-x64.dll" -DestinationPath "release/${{ matrix.cli_archive }}.zip" -Force
+
+      - name: Package CLI (macOS / Linux)
+        if: matrix.os != 'windows-latest'
+        working-directory: src-tauri
+        run: |
+          mkdir -p release
+          tar -czf "release/${{ matrix.cli_archive }}.tar.gz" -C target/release "${{ matrix.cli_bin }}"
+
+      - name: Upload CLI archives
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          draft: true
+          files: src-tauri/release/*

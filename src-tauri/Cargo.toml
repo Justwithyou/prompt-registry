@@ -1,12 +1,12 @@
 [package]
-name = "prompt-manager"
+name = "prompt-registry"
 version = "1.0.0"
 description = "个人提示词管理平台"
 authors = ["prompt-manager"]
 edition = "2021"
 
 [lib]
-name = "prompt_manager_lib"
+name = "prompt_registry_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

@@ -36,7 +36,8 @@ export function renderMarkdown(md: string): string {
 
   const flushParagraph = () => {
     if (paragraph.length > 0) {
-      html.push(`<p>${inline(paragraph.join(" "))}</p>`);
+      // 段落内单换行保留为换行（GFM 软换行），避免输入的换行被折叠成空格
+      html.push(`<p>${paragraph.map(inline).join("<br/>")}</p>`);
       paragraph = [];
     }
   };

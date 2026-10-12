@@ -51,7 +51,11 @@ jobs:
       - name: Install OpenSSL (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
-        run: choco install openssl --version=3.5.4 --no-progress -y
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $exe = Join-Path $env:RUNNER_TEMP 'Win64OpenSSL-3_5_9.exe'
+          Invoke-WebRequest -Uri 'https://slproweb.com/download/Win64OpenSSL-3_5_9.exe' -OutFile $exe -TimeoutSec 120
+          Start-Process -FilePath $exe -ArgumentList '/silent','/verysilent','/sp-','/suppressmsgboxes' -Wait
 
       - name: Configure OpenSSL (Windows)
         if: matrix.os == 'windows-latest'

@@ -48,24 +48,20 @@ jobs:
 
       # ---- OpenSSL：SQLCipher 底层依赖，按 OS 分支安装并写入环境变量 ----
 
-      - name: Install OpenSSL (Windows)
+      - name: Install & Configure OpenSSL (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
           $exe = Join-Path $env:RUNNER_TEMP 'Win64OpenSSL-3_5_9.exe'
+          $dir = Join-Path $env:RUNNER_TEMP 'openssl'
           Invoke-WebRequest -Uri 'https://slproweb.com/download/Win64OpenSSL-3_5_9.exe' -OutFile $exe -TimeoutSec 300
-          $p = Start-Process -FilePath $exe -ArgumentList '/VERYSILENT','/NORESTART' -Wait -PassThru
+          $p = Start-Process -FilePath $exe -ArgumentList '/VERYSILENT','/NORESTART','/CURRENTUSER',"/DIR=$dir" -Wait -PassThru
           if ($p.ExitCode -ne 0) { throw "OpenSSL 静默安装失败，exit code $($p.ExitCode)" }
-          if (-not (Test-Path 'C:\Program Files\OpenSSL-Win64\include\openssl\crypto.h')) { throw '安装后未找到 crypto.h' }
-          if (-not (Test-Path 'C:\Program Files\OpenSSL-Win64\lib\VC\x64\MD\libcrypto.lib')) { throw '安装后未找到 libcrypto.lib' }
-
-      - name: Configure OpenSSL (Windows)
-        if: matrix.os == 'windows-latest'
-        shell: pwsh
-        run: |
-          Add-Content -Path $env:GITHUB_ENV -Value "OPENSSL_LIB_DIR=C:\Program Files\OpenSSL-Win64\lib\VC\x64\MD"
-          Add-Content -Path $env:GITHUB_ENV -Value "OPENSSL_INCLUDE_DIR=C:\Program Files\OpenSSL-Win64\include"
+          if (-not (Test-Path "$dir\include\openssl\crypto.h")) { throw "安装后未找到 crypto.h：$dir" }
+          if (-not (Test-Path "$dir\lib\VC\x64\MD\libcrypto.lib")) { throw "安装后未找到 libcrypto.lib：$dir" }
+          Add-Content -Path $env:GITHUB_ENV -Value "OPENSSL_LIB_DIR=$dir\lib\VC\x64\MD"
+          Add-Content -Path $env:GITHUB_ENV -Value "OPENSSL_INCLUDE_DIR=$dir\include"
 
       - name: Install OpenSSL (macOS)
         if: matrix.os == 'macos-latest'

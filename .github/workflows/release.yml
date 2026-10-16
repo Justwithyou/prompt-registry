@@ -100,7 +100,6 @@ jobs:
         with:
           tagName: ${{ github.ref_name }}
           releaseName: prompt-registry ${{ github.ref_name }}
-          releaseDraft: true
 
       # ---- CLI 二进制（Windows 附带 libcrypto-3-x64.dll 打成 zip）----
 
@@ -127,5 +126,4 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.ref_name }}
-          draft: true
           files: src-tauri/release/*
